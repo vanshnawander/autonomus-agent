@@ -1,6 +1,10 @@
 # Autonomous Research Orchestrator
 
-This repository runs an auditable research pipeline in Devin CLI PTYs. An OpenAI-compatible controller observes each terminal, chooses one action at a time, enforces approval policy, and advances work through reviewer gates.
+This repository runs an auditable research pipeline in CLI-agent PTYs. An OpenAI-compatible controller observes each terminal, chooses one action at a time, enforces approval policy, and advances work through reviewer gates.
+
+> **Work in progress:** The project is under active development and its interfaces may change. Contributions, bug reports, design feedback, and new agent integrations are welcome.
+
+The orchestrator is designed to work with any terminal-based coding or research agent. Devin CLI is the current reference implementation; support for OpenCode, Codex CLI, Claude Code, and other CLI agents is planned. The long-term goal is a common orchestration layer rather than coupling the project to one agent provider.
 
 ~~~text
 literature-survey -> reviewer -> methodology -> reviewer
