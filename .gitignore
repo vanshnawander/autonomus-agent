@@ -1,0 +1,11 @@
+runs/
+.devin
+*.zip
+.env
+spec.md
+session-ses*.md
+__pycache__
+*.out
+logs/
+*.orig 
+*.rej

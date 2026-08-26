@@ -1,0 +1,167 @@
+\documentclass{article}
+
+\usepackage[dblblindworkshop]{neurips_2026}
+ % \usepackage[dblblindworkshop, final]{neurips_2026} 
+
+\workshoptitle{Workshop for Autonomous ML Research }
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{amsfonts}
+\usepackage{nicefrac}
+\usepackage{microtype}
+\usepackage{xcolor}
+\usepackage{graphicx}
+
+\title{Paper Title}
+
+\author{%
+  First Last \\
+  Org \\
+  \texttt{name@org} \\
+}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+
+\end{abstract}
+
+\noindent\textbf{Keywords:}
+
+\section{Autonomous research result}
+This part is for the research itself: the hypothesis, method, evidence, and primary result generated or developed by the agent.
+
+\subsection{Hypothesis}
+\textit{State the research question or hypothesis under test, and what result
+would confirm or refute it.}
+
+
+\subsection{Method}
+\textit{Describe the experimental design, models, datasets, and procedure used
+to test the hypothesis.}
+
+
+\subsection{Evidence}
+\textit{Present the results that support the primary result, including any
+figures or tables. An example of each is shown below; replace them with your
+own and remove this note.}
+
+\begin{figure}[h]
+  \centering
+  \fbox{\rule[-.5cm]{0cm}{4cm} \rule[-.5cm]{4cm}{0cm}}
+  \caption{Example figure caption. Explain what the figure shows and state the
+  key takeaway in the caption itself.}
+  \label{fig:example}
+\end{figure}
+
+Figure~\ref{fig:example} shows \textbf{lorem ipsum dolor}.
+
+\begin{table}[h]
+  \caption{Example table caption. Explain what the table shows and state the
+  key takeaway in the caption itself.}
+  \label{tab:example}
+  \centering
+  \begin{tabular}{lcc}
+    \toprule
+    Method & Metric A & Metric B \\
+    \midrule
+    Baseline & 0.42 & 0.61 \\
+    Agent (ours) & 0.58 & 0.77 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Table~\ref{tab:example} reports \textbf{lorem ipsum dolor}. Use
+\texttt{\textbackslash label} and \texttt{\textbackslash ref} as shown so
+figures and tables can be cited by number in the text, and use the
+\texttt{booktabs} package for tables rather than vertical or double rules.
+
+
+\subsection{Primary Result}
+\textit{State the primary result and explain why it is decisive for the
+paper's main conclusions.}
+
+
+\section{System Design and Meta-Analysis}
+This is a human-author companion to the main result and should act as a meta-analysis of the research process undertaken. It should describe the agent, harness, tools, research loop, human interventions, and verification used to produce the work. It should also include comments on the significance of the work. 
+
+
+\subsection{Agent and Harness}
+\textit{Name and describe the autonomous agent, the underlying model, and the
+harness or scaffolding it operated within.}
+
+
+\subsection{Tools}
+\textit{List the tools, APIs, compute resources, or environments the agent had
+access to during the research process.}
+
+
+\subsection{Research Loop}
+\textit{Describe how the agent iterated, including hypothesis generation,
+experimentation, and analysis steps, and how long the process ran.}
+
+
+\subsection{Human Interventions}
+\textit{Describe when and how humans intervened, including steering,
+correction, or approval steps.}
+
+
+\subsection{Verification}
+\textit{Describe how humans verified the agent's claims, figures, and results,
+including any checks used to catch hallucinated content.}
+
+
+\subsection{Significance of result}
+Why is the main result of interest to the machine learning community? What is the potential impact?
+
+
+\subsection{Interpretability}
+\textit{Describe how the research artifacts, such as code, logs, and data,
+were tracked and preserved so the process can be audited.}
+
+
+
+\subsection{Limitations}
+\textit{State what the method does not do, and where it may fail or not
+generalize.}
+
+
+
+
+\section{Broader Impact}
+\textit{Discuss potential societal effects of the work, positive or negative, including any effects specific to autonomous-agent-driven research. How would you like to see the field adapt? Share any suggestions you have for how proper
+autonomous research should be conducted.}
+
+
+\clearpage
+\appendix
+
+\section{Reproducibility Statement}
+\textit{State what is needed for others to reproduce the primary result: code
+and data availability, compute used, and how this relates to the verification
+steps described in Part 2.}
+
+
+\section{Disclosure Statement}
+
+\paragraph{Agent(s) / model(s) used}
+
+
+\begin{itemize}
+  \item[$\square$] A human author has curated this work and verified every claim,
+    figure, methodology detail, and reference.
+  \item[$\square$] A human author takes full accountability for the submission as
+    a human-authored, human-verified artifact.
+\end{itemize}
+
+
+\section{References}
+
+
+\end{document}
