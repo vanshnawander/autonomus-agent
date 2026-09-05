@@ -74,6 +74,17 @@ class Orchestrator:
     def _run_key(session_id: str, agent_id: str) -> tuple[str, str]:
         return (session_id, agent_id)
 
+    @staticmethod
+    def _reviewed_stage_for_gate(session: Session) -> Optional[str]:
+        """Return the nearest preceding non-gate stage for the active gate."""
+        if session.stage_index <= 0:
+            return None
+        for index in range(session.stage_index - 1, -1, -1):
+            stage = session.pipeline[index]
+            if not get_role(stage).is_gate:
+                return stage
+        return None
+
     def shutdown(self) -> None:
         """Stop all control loops and PTYs without triggering retry logic."""
         for stop_evt in list(self._stop_flags.values()):
@@ -129,8 +140,36 @@ class Orchestrator:
             runtime_parts.append(
                 f"Read {session.project_brief_path} in full before acting; it is the immutable project brief."
             )
+        if mem.extra_prompt:
+            runtime_parts.append(f"Persistent instruction for this role:\n{mem.extra_prompt}")
         if extra_prompt:
-            runtime_parts.append(extra_prompt)
+            runtime_parts.append(f"Current-stage instruction:\n{extra_prompt}")
+        repo_root = Path(__file__).resolve().parent.parent
+        if role.key in {"literature-survey", "critic", "reviewer"}:
+            search_helper = repo_root / "orchestrator" / "searxng.py"
+            runtime_parts.append(
+                f"Mandatory search command: {settings.python_executable} {search_helper} "
+                f"'<query>' --url {settings.searxng_url} --output outputs/literature/search_log.jsonl. "
+                "Use it for discovery; primary-source retrieval remains a separate verified step."
+            )
+        if role.key == "critic" and self.recorder is not None:
+            audit_dir = self.recorder.session_dir(session.session_id)
+            if audit_dir is not None:
+                runtime_parts.append(
+                    f"Read-only process-audit exception: inspect {audit_dir} to evaluate the prior stage's "
+                    "terminal actions and controller decisions. Do not modify anything there."
+                )
+        if role.key == "experiment-executor" and settings.server_inventory_file.is_file():
+            server_helper = repo_root / "orchestrator" / "server_inventory.py"
+            runtime_parts.append(
+                f"Private server inventory is configured at {settings.server_inventory_file}. "
+                f"Inspect its redacted capabilities with `{settings.python_executable} {server_helper} "
+                f"--file {settings.server_inventory_file} inspect`. Execute remote work only through "
+                f"`{settings.python_executable} {server_helper} --file {settings.server_inventory_file} "
+                "run <server> -- <command>`. Never read or print the inventory directly, and never invoke "
+                "ssh, scp, sftp, rsync, or sshpass yourself. Treat its workdir, command allowlist, and "
+                "runtime limit as hard boundaries."
+            )
         composed_prompt = "\n\n".join(runtime_parts)
 
         # If a PTY already exists for this agent and is alive, don't double-spawn.
@@ -605,7 +644,7 @@ class Orchestrator:
         m = _DONE_RE.search(recent)
         if m:
             stage = m.group(1).lower()
-            if mem.role == "reviewer" or stage != mem.role or session.current_stage() != mem.role:
+            if get_role(mem.role).is_gate or stage != mem.role or session.current_stage() != mem.role:
                 session.emit(Event(
                     type="invalid_stage_marker",
                     session_id=session.session_id,
@@ -640,12 +679,9 @@ class Orchestrator:
             ))
             return
 
-        # Reviewer verdicts must name the immediately preceding work stage.
-        expected_review_stage = (
-            session.pipeline[session.stage_index - 1]
-            if mem.role == "reviewer" and session.current_stage() == "reviewer" and session.stage_index > 0
-            else None
-        )
+        # Every gate verdict names the nearest preceding work stage.
+        is_active_gate = get_role(mem.role).is_gate and session.current_stage() == mem.role
+        expected_review_stage = self._reviewed_stage_for_gate(session) if is_active_gate else None
         m = _APPROVE_RE.search(recent)
         if m:
             stage = m.group(1).lower()
@@ -661,7 +697,7 @@ class Orchestrator:
             self._handle_handoff(session, agent_id, kind="approve", stage=stage)
             session.set_status(agent_id, AgentStatus.done)
             session.emit(Event(
-                type="reviewer_approved",
+                type=f"{mem.role}_approved",
                 session_id=session.session_id,
                 agent_id=agent_id,
                 data={"stage": stage},
@@ -687,7 +723,7 @@ class Orchestrator:
             self._handle_handoff(session, agent_id, kind="reject", stage=stage, reason=reason)
             session.set_status(agent_id, AgentStatus.done)
             session.emit(Event(
-                type="reviewer_rejected",
+                type=f"{mem.role}_rejected",
                 session_id=session.session_id,
                 agent_id=agent_id,
                 data={"stage": stage, "reason": reason},
@@ -705,36 +741,44 @@ class Orchestrator:
         stage: str,
         reason: str = "",
     ) -> None:
-        """Advance the pipeline or send a stage back after a reviewer verdict."""
+        """Advance the pipeline or send a stage back after a gate verdict."""
         mem = session.get_agent(from_agent)
         if mem is None:
             return
         role = get_role(mem.role)
 
         if kind == "reject":
-            # Rewind from the reviewer gate to the rejected work stage. Without
-            # this, the revised agent's AGENT_DONE marker would be evaluated
-            # while current_stage still points at reviewer.
             target = self._find_agent_for_role(session, stage)
-            if target and session.stage_index > 0 and session.pipeline[session.stage_index - 1] == stage:
-                target_mem = session.get_agent(target)
-                if target_mem is None or target_mem.role not in role.can_handoff_to:
-                    session.emit(Event(
-                        type="handoff_blocked",
-                        session_id=session.session_id,
-                        agent_id=from_agent,
-                        data={"target": target, "reason": "role boundary"},
-                    ))
-                    return
-                with session._lock:
-                    session.stage_index -= 1
-                    session.done = False
-                    session.active_agent = target
-                session.record_handoff(from_agent, target, f"reject: {reason}")
-                self.restart_agent(
-                    session, target, resume=True,
-                    extra_prompt=f"Reviewer rejected your {stage}: {reason}. Revise every blocking issue and preserve evidence of the changes.",
-                )
+            prior_indices = [
+                index for index, candidate in enumerate(session.pipeline[: session.stage_index])
+                if candidate == stage and not get_role(candidate).is_gate
+            ]
+            if not target or not prior_indices:
+                session.emit(Event(
+                    type="handoff_blocked",
+                    session_id=session.session_id,
+                    agent_id=from_agent,
+                    data={"target": target, "reason": "reviewed work stage not found"},
+                ))
+                return
+            target_mem = session.get_agent(target)
+            if target_mem is None or target_mem.role not in role.can_handoff_to:
+                session.emit(Event(
+                    type="handoff_blocked",
+                    session_id=session.session_id,
+                    agent_id=from_agent,
+                    data={"target": target, "reason": "role boundary"},
+                ))
+                return
+            with session._lock:
+                session.stage_index = prior_indices[-1]
+                session.done = False
+                session.active_agent = target
+            session.record_handoff(from_agent, target, f"reject: {reason}")
+            self.restart_agent(
+                session, target, resume=False,
+                extra_prompt=f"{mem.role.title()} rejected your {stage}: {reason}. Revise every blocking issue and preserve evidence of the changes.",
+            )
             return
 
         # done / approve -> advance to next pipeline stage.
@@ -760,13 +804,18 @@ class Orchestrator:
                 return
             session.record_handoff(from_agent, target, kind)
             extra_prompt = None
-            if next_stage == "reviewer":
+            if get_role(next_stage).is_gate:
+                gate_instruction = (
+                    "Challenge the reasoning and idea worth before acceptance review."
+                    if next_stage == "critic"
+                    else "Perform an independent acceptance audit after reading the critic report."
+                )
                 extra_prompt = (
-                    f"Independently review the just-completed `{stage}` stage for project goal: "
-                    f"{session.goal}. Apply every strict acceptance criterion and verify external claims."
+                    f"Evaluate the just-completed `{stage}` stage for project goal: {session.goal}. "
+                    f"{gate_instruction} Apply every strict criterion and verify external claims."
                 )
             elif kind == "approve":
-                extra_prompt = f"The reviewer approved `{stage}`. Begin `{next_stage}` using only approved artifacts."
+                extra_prompt = f"The {mem.role} approved `{stage}`. Begin `{next_stage}` using only approved artifacts."
             self.start_agent(session, target, extra_prompt=extra_prompt)
 
     def _find_agent_for_role(self, session: Session, role_key: str) -> Optional[str]:
@@ -844,10 +893,12 @@ class Orchestrator:
             ))
             if sess and sess.is_alive():
                 mem = session.get_agent(agent_id)
-                if mem and mem.role == "reviewer" and session.stage_index > 0:
-                    reviewed_stage = session.pipeline[session.stage_index - 1]
+                if mem and get_role(mem.role).is_gate:
+                    reviewed_stage = self._reviewed_stage_for_gate(session)
+                    if reviewed_stage is None:
+                        return
                     sess.send_line(
-                        "Do not transfer directly. Finish the current review and print exactly "
+                        "Do not transfer directly. Finish the current gate and print exactly "
                         f"APPROVE {reviewed_stage} or REJECT {reviewed_stage}: <actionable reasons>."
                     )
             return

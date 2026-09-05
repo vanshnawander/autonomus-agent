@@ -132,6 +132,11 @@ class Settings:
     searxng_url: str = field(
         default_factory=lambda: _env("SEARXNG_URL", "http://127.0.0.1:8080")
     )
+    server_inventory_file: Path = field(
+        default_factory=lambda: Path(
+            _env("DEVIN_ORCH_SERVERS_FILE", str(Path(__file__).resolve().parent.parent / "servers.json"))
+        )
+    )
 
     # --- Server ---
     host: str = field(default_factory=lambda: _env("DEVIN_ORCH_HOST", "127.0.0.1"))

@@ -6,12 +6,9 @@ Each role maps to:
 - the allowed actions the orchestrator will permit that agent to take
 - which role(s) this agent may hand off to
 
-The pipeline:
-    literature-survey -> reviewer -> methodology -> experiment-executor
-                    -> reviewer -> paper-writer
-
-The reviewer is a gate: it either approves (handoff to next stage) or sends
-the current agent back to search / redesign / re-run.
+The pipeline is work stage -> critic -> reviewer -> next work stage.
+The critic attacks reasoning and evidence construction. The reviewer then
+performs the independent acceptance audit. Either gate can send work back.
 
 All prompt text lives in ``orchestrator/prompts.py``. This module only defines
 the structural properties of each role (allowed actions, handoff graph, gate
@@ -52,7 +49,7 @@ LITERATURE_SURVEY = Role(
     key="literature-survey",
     title="Literature Survey Agent",
     allowed_actions=("edit_files", "run_readonly_commands", "web_search", "ask_questions"),
-    can_handoff_to=("reviewer",),
+    can_handoff_to=("critic", "reviewer"),
 )
 
 REVIEWER = Role(
@@ -63,31 +60,40 @@ REVIEWER = Role(
     is_gate=True,
 )
 
+CRITIC = Role(
+    key="critic",
+    title="Research Critic Agent",
+    allowed_actions=("inspect_files", "run_readonly_commands", "web_search", "suggest_changes"),
+    can_handoff_to=("literature-survey", "methodology", "experiment-executor", "paper-writer", "reviewer"),
+    is_gate=True,
+)
+
 METHODOLOGY = Role(
     key="methodology",
     title="Methodology Design Agent",
     allowed_actions=("edit_files", "run_readonly_commands", "ask_questions"),
-    can_handoff_to=("reviewer",),
+    can_handoff_to=("critic", "reviewer"),
 )
 
 EXPERIMENT_EXECUTOR = Role(
     key="experiment-executor",
     title="Experiment Execution Agent",
     allowed_actions=("edit_files", "run_tests", "run_commands", "ask_questions"),
-    can_handoff_to=("reviewer",),
+    can_handoff_to=("critic", "reviewer"),
 )
 
 PAPER_WRITER = Role(
     key="paper-writer",
     title="Paper Writing Agent",
     allowed_actions=("edit_files", "run_readonly_commands", "ask_questions"),
-    can_handoff_to=("reviewer",),
+    can_handoff_to=("critic", "reviewer"),
 )
 
 
 ROLES: dict[str, Role] = {
     r.key: r for r in (
         LITERATURE_SURVEY,
+        CRITIC,
         REVIEWER,
         METHODOLOGY,
         EXPERIMENT_EXECUTOR,
@@ -102,15 +108,17 @@ WORK_STAGES: tuple[str, ...] = (
     "experiment-executor",
     "paper-writer",
 )
+CRITIC_KEY = "critic"
 REVIEWER_KEY = "reviewer"
+GATE_KEYS: tuple[str, ...] = (CRITIC_KEY, REVIEWER_KEY)
 
 
 def build_pipeline(declared_roles: set[str]) -> list[str]:
     """Build the ordered pipeline for a set of declared roles.
 
-    For each declared work stage (in canonical order), append the stage and then
-    a reviewer gate (if the reviewer role is declared). The reviewer after the
-    final work stage is included so the last deliverable gets reviewed too.
+    For each declared work stage, append the critic and reviewer gates when
+    declared. Critic runs first so acceptance review cannot substitute for a
+    deep challenge of the research reasoning.
 
     Examples:
       {literature-survey, reviewer}
@@ -121,11 +129,14 @@ def build_pipeline(declared_roles: set[str]) -> list[str]:
       {literature-survey}  (no reviewer declared)
           -> [literature-survey]
     """
+    has_critic = CRITIC_KEY in declared_roles
     has_reviewer = REVIEWER_KEY in declared_roles
     pipeline: list[str] = []
     for stage in WORK_STAGES:
         if stage in declared_roles:
             pipeline.append(stage)
+            if has_critic:
+                pipeline.append(CRITIC_KEY)
             if has_reviewer:
                 pipeline.append(REVIEWER_KEY)
     # Fallback: if none of the canonical work stages were declared, just use the

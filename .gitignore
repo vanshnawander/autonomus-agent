@@ -2,6 +2,9 @@ runs/
 .devin
 *.zip
 .env
+servers.json
+servers
+server's
 spec.md
 session-ses*.md
 __pycache__
@@ -9,3 +12,4 @@ __pycache__
 logs/
 *.orig 
 *.rej
+ideas/

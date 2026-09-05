@@ -44,7 +44,7 @@ function AgentDetailInner({ sid, aid }: { sid: string; aid: string }) {
   const { data: feedback } = useAgentFeedback(sid, aid, attemptId);
   const { data: summary } = useAgentSummary(sid, aid, attemptId);
 
-  const isReviewer = agent?.role === "reviewer";
+  const isQualityGate = agent?.role === "reviewer" || agent?.role === "critic";
 
   return (
     <div className="flex flex-col gap-3.5">
@@ -62,12 +62,12 @@ function AgentDetailInner({ sid, aid }: { sid: string; aid: string }) {
         <span className="text-muted text-xs">
           role: {agent?.role ?? "—"} · status: {agent?.status ?? "—"}
         </span>
-        {isReviewer && (
+        {isQualityGate && (
           <Link
-            to={`/sessions/${sid}/reviewer`}
+            to={`/sessions/${sid}/quality`}
             className="ml-auto text-xs text-accent2 border border-accent2 rounded px-2 py-1 hover:bg-accent2/10"
           >
-            Reviewer overview →
+            Quality gates →
           </Link>
         )}
       </div>

@@ -56,6 +56,8 @@ _HIGH_RISK_PATTERNS: tuple[re.Pattern[str], ...] = tuple(
         r"\b--force\b",
         r"\b--dangerous\b",
         r"\b--yolo\b",
+        # Remote experiment access must go through server_inventory.py's policy broker.
+        r"\b(?:ssh|scp|sftp|sshpass)\b|\brsync\b[^\n]*(?:[A-Za-z0-9_.-]+@)?[A-Za-z0-9_.-]+:",
         r"(?:^|\n|[;&|]\s*)eval\s+",
         # Generic words such as "token" occur constantly in ML papers.
         r"\b(?:cat|less|more|head|tail|sed|grep|rg|cp|mv|source|open|read)\b[^\n|;&]*(?:\.env\b|id_rsa\b|\.ssh\b|\.aws\b)",

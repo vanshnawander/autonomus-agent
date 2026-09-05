@@ -30,6 +30,7 @@ DEVIN_ORCH_DEVIN_EXTRA_ARGS=--respect-workspace-trust false
 DEVIN_ORCH_EXPORT_TRACES=true
 DEVIN_ORCH_PYTHON=/absolute/path/to/envs/research-agents/bin/python
 DEVIN_ORCH_CONDA_ENV=research-agents
+DEVIN_ORCH_SERVERS_FILE=/absolute/path/to/autonomus-agent/servers.json
 SEARXNG_URL=http://127.0.0.1:8080
 ~~~
 
@@ -59,7 +60,7 @@ Open http://127.0.0.1:8765/. Use --reload only for development because reload st
 3. Enter the goal and one enforceable constraint per line.
 4. Write the full brief: question, hypotheses, primary-source/SearXNG policy, datasets and licenses, compute/storage limits, Conda environment, seeds, baselines, ablations, metrics, artifacts, venue, and rejection criteria.
 5. Select manual or autonomous approval mode.
-6. Keep the reviewer role for a publishable pipeline and start.
+6. Keep both critic and reviewer roles for a publishable pipeline and start.
 
 The server creates the workspace and writes PROJECT_BRIEF.md atomically before Devin starts. Absolute paths, traversal, and replacement of a different existing brief are rejected.
 
@@ -74,7 +75,7 @@ Both modes require a human for high-risk actions. Session configuration cannot b
 ## Monitor Without Micromanaging
 
 - Let changing output and declared long-running commands continue.
-- Use the pipeline view for stages and reviewer gates.
+- Use the pipeline view for work stages, critic gates, and reviewer gates.
 - Inspect terminal, controller, and audit views when a decision is questionable.
 - Resolve an approval only after reading its command and terminal context.
 - Prefer context feedback; use immediate or interrupt feedback only when necessary.
@@ -84,7 +85,9 @@ Normal paper retrieval and project-local commands may proceed in autonomous mode
 
 ## Evidence And Search
 
-Use local SearXNG for discovery and retain raw queries and decisions. Direct retrieval of a primary source discovered there is allowed when its URL and retrieval command are logged. Search snippets are not evidence.
+Use `python orchestrator/searxng.py '<query>' --url "$SEARXNG_URL" --output outputs/literature/search_log.jsonl` for discovery and retain raw queries and decisions. Direct retrieval of a primary source discovered there is allowed when its URL and retrieval command are logged. Search snippets are not evidence.
+
+For remote experiments, copy `servers.example.json` to private `servers.json`, set mode 0600, and use only `python orchestrator/server_inventory.py --file servers.json inspect` and `... run <server> -- <command>`. The experiment agent must not invoke SSH tools directly.
 
 Typical literature artifacts:
 
@@ -134,6 +137,7 @@ Create session.json:
   "project_brief": "# Project Brief\n\n## Research question\n...\n\n## Required evidence\n...\n",
   "agents": [
     {"agent_id": "literature", "role": "literature-survey"},
+    {"agent_id": "critic", "role": "critic"},
     {"agent_id": "reviewer", "role": "reviewer"},
     {"agent_id": "methodology", "role": "methodology"},
     {"agent_id": "experiments", "role": "experiment-executor"},

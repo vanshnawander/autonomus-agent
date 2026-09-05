@@ -27,8 +27,6 @@ import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional
-from urllib.parse import urlencode
-from urllib.request import urlopen
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
@@ -38,6 +36,8 @@ from .config import settings
 from .control_loop import Orchestrator
 from .pty_manager import PTYManager
 from .recorder import Recorder
+from .searxng import search as searxng_search
+from .server_inventory import redacted_inventory
 from .roles import get_role
 from .safety import SafetyGate
 from .schemas import (
@@ -179,6 +179,10 @@ def build_app() -> FastAPI:
         agent_ids = [a.agent_id for a in req.agents]
         if len(agent_ids) != len(set(agent_ids)):
             raise HTTPException(status_code=400, detail="agent_id values must be unique within a session")
+        agent_roles = [agent.role for agent in req.agents]
+        if len(agent_roles) != len(set(agent_roles)):
+            raise HTTPException(status_code=400, detail="only one agent may own each pipeline role")
+
         for spec in req.agents:
             try:
                 get_role(spec.role)
@@ -205,7 +209,7 @@ def build_app() -> FastAPI:
                 req.session_id,
                 req.goal,
                 req.constraints,
-                [(a.agent_id, a.role, a.command, a.cwd) for a in req.agents],
+                [(a.agent_id, a.role, a.command, a.cwd, a.extra_prompt) for a in req.agents],
                 approval_mode=req.approval_mode,
                 workspace=str(workspace),
                 project_brief_path=str(brief_path),
@@ -233,7 +237,6 @@ def build_app() -> FastAPI:
             orch.start_agent(
                 sess, first_agent,
                 resume_session_id=spec.resume_session_id,
-                extra_prompt=spec.extra_prompt,
             )
         return SessionResponse(
             session_id=sess.session_id,
@@ -718,15 +721,25 @@ def build_app() -> FastAPI:
             "trace_export": {"ok": settings.devin_export_traces, "detail": "enabled" if settings.devin_export_traces else "disabled"},
         }
         try:
-            query = urlencode({"q": "orchestrator preflight", "format": "json"})
-            with urlopen(f"{settings.searxng_url.rstrip('/')}/search?{query}", timeout=2) as response:
-                searx_ok = response.status == 200
+            searxng_search("orchestrator preflight", base_url=settings.searxng_url, limit=1, timeout=2)
+            searx_ok = True
             searx_detail = settings.searxng_url
         except Exception as exc:
             searx_ok = False
             searx_detail = f"{settings.searxng_url}: {type(exc).__name__}"
         checks["searxng"] = {"ok": searx_ok, "detail": searx_detail}
-        required = ("controller", "devin", "python", "conda", "workspace", "trace_export")
+        try:
+            inventory = redacted_inventory(settings.server_inventory_file)
+            password_auth = any(server["auth"] == "password" for server in inventory)
+            inventory_ok = not password_auth or shutil.which("sshpass") is not None
+            inventory_detail = f"{len(inventory)} server(s), secret-safe broker ready"
+            if password_auth and not inventory_ok:
+                inventory_detail += "; sshpass is missing"
+        except (ValueError, OSError) as exc:
+            inventory_ok = not settings.server_inventory_file.exists()
+            inventory_detail = "optional; not configured" if inventory_ok else str(exc)
+        checks["server_inventory"] = {"ok": inventory_ok, "detail": inventory_detail}
+        required = ("controller", "devin", "python", "conda", "workspace", "trace_export", "searxng", "server_inventory")
         return {"ready": all(checks[name]["ok"] for name in required), "checks": checks}
 
 
@@ -744,6 +757,8 @@ def build_app() -> FastAPI:
             "conda_env": settings.conda_env,
             "workspace_root": str(settings.workspace_root),
             "searxng_url": settings.searxng_url,
+            "server_inventory_configured": settings.server_inventory_file.is_file(),
+            "server_inventory_file": str(settings.server_inventory_file),
             "trace_export": settings.devin_export_traces,
             "sessions": len(sessions.all()),
         }

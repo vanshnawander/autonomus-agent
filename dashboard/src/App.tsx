@@ -60,8 +60,8 @@ function Shell() {
         <Link to="/" className="app-brand">
           <span className="app-mark" aria-hidden="true"><span /></span>
           <span className="brand-copy">
-            <strong>Research OS</strong>
-            <small>Agent control plane</small>
+            <strong>Research Control</strong>
+            <small>Evidence operations</small>
           </span>
         </Link>
         <div className="header-health">
@@ -150,6 +150,7 @@ function Shell() {
             <Route path="/sessions/:sid" element={<SessionOverviewPage />} />
             <Route path="/sessions/:sid/agents/:aid" element={<AgentDetailPage />} />
             <Route path="/sessions/:sid/reviewer" element={<ReviewerPage />} />
+            <Route path="/sessions/:sid/quality" element={<ReviewerPage />} />
           </Routes>
         </PageTransition>
       </main>

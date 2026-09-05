@@ -12,6 +12,7 @@ const ROLE_OPTIONS = [
   "experiment-executor",
   "paper-writer",
   "reviewer",
+  "critic",
 ];
 
 function cloneAgents(agents: AgentSpec[]): AgentSpec[] {
@@ -49,8 +50,9 @@ ${constraintLines || "- Define project constraints before starting."}
 1. Verify the literature against primary sources and maintain a search ledger.
 2. Design falsifiable methodology with baselines, controls, ablations, and uncertainty.
 3. Run tested experiments with immutable configs, logs, metrics, and environment records.
-4. Apply an independent reviewer gate after every stage.
-5. Write the final paper using only approved, traceable evidence.
+4. Apply an adversarial critic gate after every stage.
+5. Require a separate reviewer acceptance gate after every critic approval.
+6. Write the final paper using only critic- and reviewer-approved, traceable evidence.
 
 ## Deliverables
 - Validated literature records and claim-level citations.
@@ -100,7 +102,7 @@ export function NewSessionModal({
 
   const preset = PRESETS.find((item) => item.id === presetId) ?? PRESETS[0];
   const finalSid = sid.trim();
-  const finalWorkspace = workspace.trim() || `runs/${finalSid}`;
+  const finalWorkspace = workspace.trim() || finalSid;
   const constraintList = useMemo(
     () =>
       constraints
@@ -147,7 +149,6 @@ export function NewSessionModal({
       ),
     );
   };
-
   const validate = (targetStep = step): string | null => {
     if (targetStep >= 0) {
       if (!topic.trim()) return "Research topic is required.";
@@ -166,6 +167,8 @@ export function NewSessionModal({
       }
       const ids = agents.map((agent) => agent.agent_id.trim());
       if (new Set(ids).size !== ids.length) return "Agent IDs must be unique.";
+      const roles = agents.map((agent) => agent.role.trim());
+      if (new Set(roles).size !== roles.length) return "Each pipeline role may be assigned to only one agent.";
     }
     return null;
   };
@@ -222,6 +225,7 @@ export function NewSessionModal({
     workspace: "Workspace root",
     trace_export: "Trace export",
     searxng: "Local SearXNG",
+    server_inventory: "Experiment servers",
   };
   const preflight = [
     { label: "Orchestrator API", ok: online, value: online ? "Connected" : "Offline" },
@@ -431,7 +435,7 @@ export function NewSessionModal({
               <div>
                 <div className="section-label">Agent pipeline</div>
                 <p className="text-[11px] text-muted leading-relaxed mb-0">
-                  Stages run in canonical research order. A reviewer agent inserts a gate after each selected work stage.
+                  Each work stage runs through an adversarial critic, then an independent acceptance reviewer.
                 </p>
               </div>
               <div className="overflow-x-auto border border-line rounded-lg">

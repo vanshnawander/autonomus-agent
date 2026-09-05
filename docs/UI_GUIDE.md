@@ -20,14 +20,14 @@ Open http://127.0.0.1:8765/.
 
 Select **Start Research Session**:
 
-- **Preset**: use the full pipeline for survey, method, experiments, paper, and reviews.
+- **Preset**: use the full pipeline for survey, method, experiments, and paper, each followed by critic and reviewer gates.
 - **Session ID**: unique identity under logs/.
 - **Workspace**: relative directory below the configured runs/ root.
 - **Goal**: concise outcome for controller and handoffs.
 - **Constraints**: one enforceable requirement per line.
 - **Project brief**: complete contract saved before work starts.
 - **Approval mode**: manual approvals or autonomous.
-- **Agents**: role/ID mapping; retain a reviewer for publication work.
+- **Agents**: role/ID mapping; retain both the adversarial critic and independent reviewer for publication work.
 
 A useful brief states the falsifiable question, primary-source and local-SearXNG policy, datasets and licenses, baselines, ablations, metrics, seeds, leakage checks, Conda/GPU/storage limits, required artifacts, venue, and rejection criteria.
 
@@ -43,7 +43,7 @@ Both modes stop for high risk. No UI option can approve destructive commands, se
 
 ## Monitor
 
-- **Pipeline**: active stage and reviewer gates.
+- **Pipeline**: active work stage, critic gate, and reviewer gate.
 - **Live terminal**: current Devin PTY.
 - **Events**: lifecycle, questions, approvals, retries, and handoffs.
 - **Approvals**: unresolved decisions.
@@ -57,7 +57,7 @@ Avoid continuous intervention while an agent is searching, downloading, building
 ## Verify Completion
 
 1. Every stage has an exact validated marker.
-2. Every reviewer approved the correct preceding stage.
+2. Every critic documented adversarial checks and every reviewer independently approved the correct preceding stage.
 3. Required workspace artifacts exist.
 4. Claims map to primary sources or immutable metrics.
 5. Failed and negative runs remain recorded.

@@ -1,17 +1,19 @@
 # Autonomous Research Orchestrator
 
-This repository runs an auditable research pipeline in CLI-agent PTYs. An OpenAI-compatible controller observes each terminal, chooses one action at a time, enforces approval policy, and advances work through reviewer gates.
+This repository runs an auditable research pipeline in CLI-agent PTYs. An OpenAI-compatible controller observes each terminal, chooses one action at a time, enforces approval policy, and advances work through an adversarial critic followed by an independent acceptance reviewer.
 
 > **Work in progress:** The project is under active development and its interfaces may change. Contributions, bug reports, design feedback, and new agent integrations are welcome.
 
 The orchestrator is designed to work with any terminal-based coding or research agent. Devin CLI is the current reference implementation; support for OpenCode, Codex CLI, Claude Code, and other CLI agents is planned. The long-term goal is a common orchestration layer rather than coupling the project to one agent provider.
 
 ~~~text
-literature-survey -> reviewer -> methodology -> reviewer
-                  -> experiment-executor -> reviewer -> paper-writer -> reviewer
+literature-survey -> critic -> reviewer
+methodology       -> critic -> reviewer
+experiments       -> critic -> reviewer
+paper-writer      -> critic -> reviewer
 ~~~
 
-Devin role sessions use **GLM-5.2** by default. Research discovery should use local SearXNG so queries and result decisions remain traceable.
+Devin role sessions use **GLM-5.2** by default. Literature, critic, and reviewer discovery must use the bundled local-SearXNG helper so queries and result decisions remain traceable.
 
 ## Records
 
@@ -62,7 +64,7 @@ The dashboard is the primary workflow:
 4. Choose an approval mode:
    - **Manual approvals**: medium-risk terminal confirmations wait for a person.
    - **Autonomous**: the OpenRouter controller may approve low- and medium-risk actions.
-5. Review roles, create the session, and monitor the terminal, events, decisions, audit records, and reviewer verdicts.
+5. Review roles, create the session, and monitor the terminal, events, decisions, audit records, critic verdicts, and reviewer verdicts.
 
 High-risk actions always require a person in both modes. Session creation writes PROJECT_BRIEF.md before the first agent starts and rejects a workspace containing a different brief.
 
@@ -87,6 +89,7 @@ DEVIN_ORCH_WORKSPACE_ROOT=/absolute/path/to/autonomus-agent/runs
 DEVIN_ORCH_PYTHON=/absolute/path/to/envs/research-agents/bin/python
 DEVIN_ORCH_CONDA_ENV=research-agents
 SEARXNG_URL=http://127.0.0.1:8080
+DEVIN_ORCH_SERVERS_FILE=/absolute/path/to/autonomus-agent/servers.json
 ~~~
 
 The UI never needs the key. approval_mode is per session and cannot weaken the immutable high-risk gate.
@@ -113,6 +116,7 @@ curl -fsS -X POST http://127.0.0.1:8765/sessions \
   "project_brief": "# Project Brief\n\n## Research question\nHow should reference sliding-window attention be adapted for diffusion and flow models?\n\n## Deliverable\nAn auditable study, experiments, and publication-ready paper.\n",
   "agents": [
     {"agent_id": "literature", "role": "literature-survey"},
+    {"agent_id": "critic", "role": "critic"},
     {"agent_id": "reviewer", "role": "reviewer"},
     {"agent_id": "methodology", "role": "methodology"},
     {"agent_id": "experiments", "role": "experiment-executor"},
@@ -127,7 +131,7 @@ Use approval_mode manual for supervised approvals. Autonomous creation fails ear
 | Endpoint | Purpose |
 |---|---|
 | GET /health | Controller and Devin configuration |
-| GET /preflight | Secret-safe readiness checks for controller, Devin, Conda, workspace, traces, and SearXNG |
+| GET /preflight | Secret-safe readiness checks for controller, Devin, Conda, workspace, traces, SearXNG, and the optional server inventory |
 | GET /sessions/all | Live and recorded sessions |
 | GET /sessions/{sid} | Current pipeline and agents |
 | GET /sessions/{sid}/events | Session SSE stream |
@@ -143,7 +147,8 @@ Use approval_mode manual for supervised approvals. Autonomous creation fails ear
 
 - Destructive commands, secret access, pushes, publishing, deployments, and major external effects always require human approval.
 - Stage completion requires an exact validated marker; controller inference cannot advance the pipeline.
-- An independent reviewer can reject every stage back for revision.
+- An adversarial critic attacks reasoning, novelty, confounds, executed code paths, and claim evidence after every work stage.
+- A separate reviewer independently accepts or rejects each critic-approved stage; either gate can send work back for a fresh attempt.
 - Agents preserve sources, commands, versions, hashes, seeds, failed runs, and claim mappings.
 - Role-appropriate subagents may handle bounded work, but the owning role records run IDs and verifies outputs. GPU training remains serialized within the declared budget.
 
@@ -167,8 +172,9 @@ The API reconstructs the pipeline and runs `devin -r <validated-history-id>` in 
 | Autonomous session rejected | Set the controller key in private .env |
 | SearXNG fails | Query http://127.0.0.1:8080/search?q=test&format=json |
 | Devin cannot start | Check devin models list for GLM-5.2 |
+| Server inventory fails | Copy servers.example.json to private servers.json, fill it in, and run chmod 600 servers.json |
 | Python import missing | Use conda run -n research-agents python -m pip install PACKAGE |
 | Workspace returns 409 | Reuse the exact brief or choose a new workspace |
 | Run is waiting | Check Approvals, terminal, controller, and audit |
 
-See [docs/OPERATIONS.md](docs/OPERATIONS.md) and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+See [docs/OPERATIONS.md](docs/OPERATIONS.md), [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/RESEARCH_QUALITY_AUDIT.md](docs/RESEARCH_QUALITY_AUDIT.md), and [docs/MAINTAINER_HANDOFF.md](docs/MAINTAINER_HANDOFF.md).

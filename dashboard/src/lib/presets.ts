@@ -11,6 +11,7 @@ export interface ResearchPreset {
 
 const DEFAULT_AGENTS: AgentSpec[] = [
   { agent_id: "survey", role: "literature-survey" },
+  { agent_id: "research-critic", role: "critic" },
   { agent_id: "strict-reviewer", role: "reviewer" },
   { agent_id: "methodology", role: "methodology" },
   { agent_id: "experimenter", role: "experiment-executor" },
@@ -22,13 +23,15 @@ export const PRESETS: ResearchPreset[] = [
     id: "full-pipeline",
     label: "Full Research Pipeline",
     description:
-      "Literature survey → review → methodology → experiments → paper. Reviewer gates every stage.",
+      "Literature → critic → reviewer → methodology → experiments → paper. Two independent quality gates per stage.",
     goal:
       "Survey recent work on the chosen topic, identify open problems, design a minimal reproducible methodology, run experiments, and write an evidence-grounded paper draft.",
     constraints: [
       "Use primary sources; record every repo remote, license and commit SHA.",
       "Do not fabricate citations, results, or completed runs.",
       "Run cheap smoke tests before substantive experiments.",
+      "Use local SearXNG for every discovery query and retain the ledger.",
+      "The critic must reject weak or derivative ideas before reviewer acceptance.",
       "Reviewer approval is exceptional and requires independent verification.",
     ],
     agents: DEFAULT_AGENTS,
@@ -37,7 +40,7 @@ export const PRESETS: ResearchPreset[] = [
     id: "lit-survey-only",
     label: "Literature Survey Only",
     description:
-      "Just the survey + reviewer gate. Good for scoping a topic before committing to experiments.",
+      "Survey, adversarial idea critique, and independent acceptance review before experiments.",
     goal:
       "Survey recent work on the chosen topic, produce per-paper summaries, and compile a ranked list of open, experimentally testable problems.",
     constraints: [
@@ -47,6 +50,7 @@ export const PRESETS: ResearchPreset[] = [
     ],
     agents: [
       { agent_id: "survey", role: "literature-survey" },
+      { agent_id: "critic", role: "critic" },
       { agent_id: "reviewer", role: "reviewer" },
     ],
   },
@@ -65,6 +69,7 @@ export const PRESETS: ResearchPreset[] = [
     agents: [
       { agent_id: "methodology", role: "methodology" },
       { agent_id: "experimenter", role: "experiment-executor" },
+      { agent_id: "critic", role: "critic" },
       { agent_id: "writer", role: "paper-writer" },
       { agent_id: "reviewer", role: "reviewer" },
     ],

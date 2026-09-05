@@ -51,6 +51,8 @@ class AgentMemory:
     attempt_count: int = 0
     started_at: Optional[float] = None
     finished_at: Optional[float] = None
+    # Persistent per-agent instruction from AgentSpec.extra_prompt.
+    extra_prompt: Optional[str] = None
     # Optional override for the spawn command (from AgentSpec.command). When set,
     # start_agent uses this verbatim instead of building a `devin` invocation.
     command: Optional[str] = None
@@ -268,22 +270,25 @@ class SessionStore:
         session_id: str,
         goal: str,
         constraints: list[str],
-        agent_specs: list[tuple[str, str, Optional[str], Optional[str]]],
+        agent_specs: list[tuple],
         approval_mode: ApprovalMode = ApprovalMode.manual,
         workspace: Optional[str] = None,
         project_brief_path: Optional[str] = None,
         project_brief_sha256: Optional[str] = None,
     ) -> Session:
-        """agent_specs is a list of (agent_id, role_key, command_override, cwd).
+        """Each agent spec is (id, role, command, cwd[, persistent_extra_prompt])."""
+        normalized_specs = []
+        for spec in agent_specs:
+            if len(spec) not in (4, 5):
+                raise ValueError("agent spec must contain 4 or 5 values")
+            aid, role, command, cwd = spec[:4]
+            extra_prompt = spec[4] if len(spec) == 5 else None
+            normalized_specs.append((aid, role, command, cwd, extra_prompt))
 
-        command_override and cwd may be None to use the default `devin` command.
-        """
         with self._lock:
             if session_id in self._sessions:
                 raise RuntimeError(f"Session {session_id} already exists")
-            # Build the ordered pipeline: each declared work stage followed by a
-            # reviewer gate (if the reviewer role is declared).
-            declared_roles = {role for _aid, role, _c, _w in agent_specs}
+            declared_roles = {role for _aid, role, _c, _w, _p in normalized_specs}
             pipeline = build_pipeline(declared_roles)
             sess = Session(
                 session_id=session_id,
@@ -295,12 +300,12 @@ class SessionStore:
                 project_brief_path=project_brief_path,
                 project_brief_sha256=project_brief_sha256,
             )
-            for aid, role, cmd, cwd in agent_specs:
+            for aid, role, cmd, cwd, extra_prompt in normalized_specs:
                 mem = sess.add_agent(aid, role)
                 mem.command = cmd
                 mem.cwd = cwd
+                mem.extra_prompt = extra_prompt
             self._sessions[session_id] = sess
-            # Register with the recorder so everything from here on is persisted.
             if self.recorder is not None:
                 sess.recorder = self.recorder
                 self.recorder.register_session(session_id, {
@@ -314,8 +319,15 @@ class SessionStore:
                     "project_brief_sha256": project_brief_sha256,
                     "orchestrator_model": settings.llm_model,
                     "devin_model": settings.devin_model,
-                    "agents": {aid: {"role": m.role, "command": m.command, "cwd": m.cwd}
-                               for aid, m in sess.agents.items()},
+                    "agents": {
+                        aid: {
+                            "role": memory.role,
+                            "command": memory.command,
+                            "cwd": memory.cwd,
+                            "extra_prompt": memory.extra_prompt,
+                        }
+                        for aid, memory in sess.agents.items()
+                    },
                     "stage_index": 0,
                     "active_agent": None,
                     "done": False,
@@ -364,6 +376,7 @@ class SessionStore:
                     if prior_status in {"done", "error", "stopped", "idle"}
                     else AgentStatus.stopped
                 )
+                mem.extra_prompt = spec.get("extra_prompt")
                 mem.devin_session_id = state.get("devin_session_id")
                 mem.attempt_count = int(state.get("attempt_count", 0))
                 mem.retry_count = int(state.get("retry_count", 0))

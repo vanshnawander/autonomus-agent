@@ -32,15 +32,16 @@ function ReviewerInner({ sid }: { sid: string }) {
   if (!session) return <Spinner label="loading session…" />;
 
   const agents = session.agents ?? {};
-  const reviewers = Object.entries(agents).filter(([, a]) => a.role === "reviewer");
-  const workAgents = Object.entries(agents).filter(([a]) =>
-    reviewers.some(([, r]) => r.agent_id !== a),
+  const reviewers = Object.entries(agents).filter(
+    ([, agent]) => agent.role === "critic" || agent.role === "reviewer",
   );
+  const workAgents = Object.entries(agents).filter(([, agent]) => !["critic", "reviewer"].includes(agent.role));
 
   // Find review-related events (verdicts, handoffs).
   const reviewEvents = events.filter(
     (e) =>
       e.type.includes("review") ||
+      e.type.includes("critic") ||
       e.type.includes("verdict") ||
       e.type.includes("handoff") ||
       e.type.includes("approval") ||
@@ -60,21 +61,21 @@ function ReviewerInner({ sid }: { sid: string }) {
         items={[
           { label: "sessions", to: "/" },
           { label: sid, to: `/sessions/${sid}` },
-          { label: "reviewer" },
+          { label: "quality" },
         ]}
       />
 
       <div className="flex items-center gap-3">
-        <h1 className="text-lg font-semibold m-0">Reviewer Gates</h1>
+        <h1 className="text-lg font-semibold m-0">Quality Gates</h1>
         <span className="text-muted text-xs">
-          {reviewers.length} reviewer agent(s) · {reviewEvents.length} review events
+          {reviewers.length} critic/reviewer agent(s) · {reviewEvents.length} gate events
         </span>
       </div>
 
       {/* Verdict summary */}
-      <Card title="Verdict Summary">
+      <Card title="Gate verdicts">
         {!verdicts.length ? (
-          <Empty>No reviewer agents in this session.</Empty>
+          <Empty>No critic or reviewer agents in this session.</Empty>
         ) : (
           <div className="flex flex-col gap-2">
             {verdicts.map((v) => (
@@ -88,7 +89,7 @@ function ReviewerInner({ sid }: { sid: string }) {
                 >
                   {v.aid}
                 </Link>
-                <span className="text-muted text-xs">status: {v.agent.status}</span>
+                <span className="text-muted text-xs">{v.agent.role} · {v.agent.status}</span>
                 <span className="ml-auto">
                   {v.verdict ? (
                     <VerdictBadge verdict={v.verdict} />
@@ -102,7 +103,7 @@ function ReviewerInner({ sid }: { sid: string }) {
         )}
       </Card>
 
-      {/* Per-reviewer deep dive */}
+      {/* Per-gate deep dive */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-3.5">
         {reviewers.map(([aid, a]) => (
           <ReviewerAgentPanel key={aid} sid={sid} aid={aid} agent={a} />
@@ -110,9 +111,9 @@ function ReviewerInner({ sid }: { sid: string }) {
       </div>
 
       {/* Review events timeline */}
-      <Card title="Review Event Timeline">
+      <Card title="Gate event timeline">
         {!reviewEvents.length ? (
-          <Empty>No review/handoff events yet.</Empty>
+          <Empty>No quality-gate events yet.</Empty>
         ) : (
           <div className="font-mono text-[11px] max-h-96 overflow-y-auto">
             {reviewEvents.map((e, i) => (

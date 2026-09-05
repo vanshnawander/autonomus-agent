@@ -40,7 +40,6 @@ export function HomePage() {
   const pendingCount = sessions.filter(
     (session) => session.live && !session.done && !session.active_agent,
   ).length;
-  const totalEvents = sessions.reduce((sum, session) => sum + session.events_count, 0);
 
   const openWizard = (selectedPreset?: string) => {
     setPresetId(selectedPreset);
@@ -52,8 +51,8 @@ export function HomePage() {
       <section className="workbench-heading">
         <div>
           <div className="section-label">Research operations</div>
-          <h1>Command center</h1>
-          <p>Monitor autonomous research, intervene when needed, and keep every run accountable.</p>
+          <h1>Research command center</h1>
+          <p>Run evidence-first agent pipelines with visible provenance, adversarial critique, and independent acceptance gates.</p>
         </div>
         <button onClick={() => openWizard()} className="primary-button">
           + New session
@@ -72,9 +71,18 @@ export function HomePage() {
           value={health?.devin_model ?? "Unavailable"}
           state={online}
         />
+        <StatusMetric
+          label="Search"
+          value={health?.searxng_url ? "SearXNG" : "Unavailable"}
+          state={!!health?.searxng_url}
+        />
+        <StatusMetric
+          label="Servers"
+          value={health?.server_inventory_configured ? "Configured" : "Local only"}
+          state={online}
+        />
         <StatusMetric label="Running" value={String(runningCount)} state={runningCount > 0} />
         <StatusMetric label="Waiting" value={String(pendingCount)} state={pendingCount === 0} />
-        <StatusMetric label="Events" value={String(totalEvents)} state />
       </section>
 
       {!online && (

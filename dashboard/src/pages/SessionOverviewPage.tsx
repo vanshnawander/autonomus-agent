@@ -4,6 +4,7 @@ import { AgentTabs } from "@/components/AgentTabs";
 import { Approvals } from "@/components/Approvals";
 import { Handoffs } from "@/components/Handoffs";
 import { LiveLogTerminal } from "@/components/LiveLogTerminal";
+import { PipelineView } from "@/components/PipelineView";
 import { Breadcrumbs, ErrorBox, Spinner } from "@/components/ui";
 import {
   useRecordedEvents,
@@ -70,7 +71,7 @@ function SessionOverviewInner({ sid }: { sid: string }) {
   if (!session) return <Spinner label="loading session…" />;
 
   const agents = session.agents ?? {};
-  const hasReviewer = Object.values(agents).some((a) => a.role === "reviewer");
+  const hasQualityGate = Object.values(agents).some((a) => a.role === "reviewer" || a.role === "critic");
   const agentCount = Object.keys(agents).length;
 
   const handleResolve = async (id: string, approved: boolean, reason: string) => {
@@ -123,12 +124,12 @@ function SessionOverviewInner({ sid }: { sid: string }) {
             <div className="text-[15px] mt-2 leading-relaxed">{session.goal}</div>
           </div>
           <div className="flex items-center gap-2">
-            {hasReviewer && (
+            {hasQualityGate && (
               <Link
-                to={`/sessions/${sid}/reviewer`}
+                to={`/sessions/${sid}/quality`}
                 className="bg-accent2/10 text-accent2 border border-accent2/40 rounded-xl px-3 py-1.5 text-xs hover:bg-accent2/20 transition-colors flex items-center gap-1.5"
               >
-                Reviewer gates
+                Quality gates
               </Link>
             )}
             {isRecorded && !session.done && (
@@ -149,6 +150,19 @@ function SessionOverviewInner({ sid }: { sid: string }) {
           </div>
         </div>
       </div>
+
+      <section className="session-section pipeline-panel">
+        <div className="session-section-heading">
+          <div><span className="section-kicker">Research protocol</span><h2>Stage progression</h2></div>
+          <span>{Math.min((session.stage_index ?? 0) + 1, session.pipeline?.length ?? 0)} / {session.pipeline?.length ?? 0}</span>
+        </div>
+        <PipelineView
+          agents={agents}
+          activeAgent={session.active_agent}
+          pipeline={session.pipeline}
+          stageIndex={session.stage_index}
+        />
+      </section>
 
       {approvals.length > 0 && (
         <section id="review-queue">

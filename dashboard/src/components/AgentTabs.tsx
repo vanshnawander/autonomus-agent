@@ -18,6 +18,7 @@ const STATUS_DOT: Record<AgentStatus, string> = {
 const ROLE_CODE: Record<string, string> = {
   "literature-survey": "LS",
   reviewer: "RV",
+  critic: "CR",
   methodology: "MT",
   "experiment-executor": "EX",
   "paper-writer": "PW",

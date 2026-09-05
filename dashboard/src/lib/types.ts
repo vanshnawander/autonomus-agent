@@ -152,6 +152,8 @@ export interface HealthResponse {
   workspace_root?: string;
   searxng_url?: string;
   trace_export?: boolean;
+  server_inventory_configured?: boolean;
+  server_inventory_file?: string;
   sessions: number;
 }
 

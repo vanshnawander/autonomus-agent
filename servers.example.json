@@ -1,0 +1,23 @@
+{
+  "servers": [
+    {
+      "name": "gpu-lab-1",
+      "host": "203.0.113.10",
+      "port": 22,
+      "user": "research",
+      "type": "1x NVIDIA GPU, CUDA 12",
+      "identity_file": "/absolute/path/to/private/key",
+      "enabled": true,
+      "restrictions": {
+        "workdir": "/srv/research/project",
+        "max_runtime_minutes": 180,
+        "allowed_command_prefixes": [
+          "nvidia-smi",
+          "python -m pytest",
+          "python experiments/scripts/run_experiment.py"
+        ],
+        "notes": "One GPU job at a time; maximum 5.5 GiB VRAM; do not install system packages."
+      }
+    }
+  ]
+}

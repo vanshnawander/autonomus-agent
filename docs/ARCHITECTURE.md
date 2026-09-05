@@ -29,16 +29,16 @@ Every stage prompt contains the goal, constraints, workspace, brief path, base r
 
 ## Pipeline
 
-orchestrator/roles.py inserts a reviewer after every declared work stage:
+orchestrator/roles.py inserts two gates after every declared work stage. The critic attacks scientific reasoning first; the reviewer independently performs acceptance:
 
 ~~~text
-literature-survey -> reviewer
-methodology -> reviewer
-experiment-executor -> reviewer
-paper-writer -> reviewer
+literature-survey -> critic -> reviewer
+methodology -> critic -> reviewer
+experiment-executor -> critic -> reviewer
+paper-writer -> critic -> reviewer
 ~~~
 
-Work roles emit AGENT_DONE <role>; reviewers emit APPROVE <role> or REJECT <role>: <reasons>. A controller decision cannot substitute for a validated marker.
+Work roles emit AGENT_DONE <role>; both gates emit APPROVE <role> or REJECT <role>: <reasons>. A controller decision cannot substitute for a validated marker. A rejection rewinds to a fresh work-stage attempt so a stale completion marker cannot replay; reviewer rejection routes through the critic again.
 
 Role prompts require bounded, traceable subagents where appropriate. The owning role records run IDs, verifies outputs, retains final judgment, and avoids concurrent GPU training.
 
@@ -47,7 +47,7 @@ Role prompts require bounded, traceable subagents where appropriate. The owning 
 Each project/agent pair has a PTY, idle detector, stop flag, and control thread:
 
 1. Read PTY bytes and update raw and visible records.
-2. Detect questions, completion markers, and reviewer verdicts.
+2. Detect questions, completion markers, and critic/reviewer verdicts.
 3. Wait while output changes or long work is active.
 4. At a stable prompt, send session state, visible screen, and recent output to the controller.
 5. Persist the complete request and response.
@@ -139,6 +139,7 @@ FastAPI serves dashboard/dist/; build it before server startup. Vite development
 | DEVIN_ORCH_PYTHON | running Conda interpreter | Python executable recorded for agents |
 | DEVIN_ORCH_CONDA_ENV | current Conda environment | Required environment name |
 | SEARXNG_URL | http://127.0.0.1:8080 | Logged research discovery endpoint |
+| DEVIN_ORCH_SERVERS_FILE | repository servers.json | Private 0600 server inventory used only through the restricted broker |
 | DEVIN_ORCH_QUIET_MS | 1200 | Idle threshold |
 | DEVIN_ORCH_POLL_S | 0.1 | PTY polling |
 | DEVIN_ORCH_MAX_RETRIES | 2 | Retry limit |

@@ -10,10 +10,12 @@ const WORK_STAGES = [
 export function inferPipeline(agents: Record<string, AgentStateResponse>): string[] {
   const roles = new Set(Object.values(agents).map((agent) => agent.role));
   const hasReviewer = roles.has("reviewer");
+  const hasCritic = roles.has("critic");
   const pipeline: string[] = [];
   for (const stage of WORK_STAGES) {
     if (roles.has(stage)) {
       pipeline.push(stage);
+      if (hasCritic) pipeline.push("critic");
       if (hasReviewer) pipeline.push("reviewer");
     }
   }
@@ -45,11 +47,13 @@ export function PipelineView({
     activeIndex = pipeline.lastIndexOf(agents[activeAgent].role);
   }
 
+  let criticNumber = 0;
   let reviewerNumber = 0;
   return (
     <ol className="pipeline-track">
       {pipeline.map((stage, index) => {
         if (stage === "reviewer") reviewerNumber += 1;
+        if (stage === "critic") criticNumber += 1;
         const isDone =
           activeIndex >= pipeline.length ||
           (activeIndex >= 0 && index < activeIndex) ||
@@ -71,7 +75,11 @@ export function PipelineView({
           <li key={`${stage}-${index}`} className="pipeline-item">
             <span className={className}>
               <span className="pipeline-index">{index + 1}</span>
-              {stage === "reviewer" ? `reviewer gate ${reviewerNumber}` : stage}
+              {stage === "critic"
+                ? `critic gate ${criticNumber}`
+                : stage === "reviewer"
+                  ? `review gate ${reviewerNumber}`
+                  : stage}
               {isRunning && <span className="status-dot status-ok pulse-soft" />}
             </span>
             {index < pipeline.length - 1 && (
