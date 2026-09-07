@@ -67,7 +67,7 @@ ${preset.label}
 
 const fieldClass =
   "w-full bg-ink-950 border border-line rounded-lg px-3 py-2 text-xs text-fg placeholder:text-faint";
-const labelClass = "text-[11px] font-semibold text-fg-dim";
+const labelClass = "text-xs font-semibold text-fg-dim";
 
 export function NewSessionModal({
   onClose,
@@ -187,6 +187,7 @@ export function NewSessionModal({
   };
 
   const create = async () => {
+    if (busy) return;
     const issue = validate(3);
     if (issue) {
       setErr(issue);
@@ -195,7 +196,7 @@ export function NewSessionModal({
     setBusy(true);
     setErr(null);
     try {
-      await apiClient.createSession({
+      const created = await apiClient.createSession({
         session_id: finalSid,
         goal: `${goal.trim()}\n\nTopic: ${topic.trim()}`,
         constraints: constraintList,
@@ -208,7 +209,8 @@ export function NewSessionModal({
         workspace: finalWorkspace,
         project_brief: projectBrief.trim(),
       });
-      onCreated(finalSid);
+      if (!created.session_id) throw new Error("Backend did not return a session ID.");
+      onCreated(created.session_id);
       onClose();
     } catch (error) {
       setErr((error as Error).message);
@@ -250,6 +252,11 @@ export function NewSessionModal({
     },
   ];
 
+  const requiredChecks = Object.entries(systemPreflight?.checks ?? {}).filter(
+    ([name]) => name !== "controller" || approvalMode === "autonomous",
+  );
+  const canCreate = online && !!systemPreflight && requiredChecks.every(([, check]) => check.ok);
+
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-3">
       <div
@@ -263,7 +270,7 @@ export function NewSessionModal({
             <h2 id="new-session-title" className="m-0 text-base font-semibold">
               New research session
             </h2>
-            <p className="m-0 mt-1 text-[11px] text-muted">
+            <p className="m-0 mt-1 text-xs text-muted">
               Define the work before starting autonomous execution.
             </p>
           </div>
@@ -304,7 +311,7 @@ export function NewSessionModal({
                       className={`preset-option ${presetId === item.id ? "preset-option-active" : ""}`}
                     >
                       <span className="font-semibold text-xs">{item.label}</span>
-                      <span className="text-[10px] text-muted leading-relaxed mt-1">
+                      <span className="text-xs text-muted leading-relaxed mt-1">
                         {item.description}
                       </span>
                     </button>
@@ -359,7 +366,7 @@ export function NewSessionModal({
                   placeholder={`runs/${finalSid}`}
                   className={`${fieldClass} font-mono`}
                 />
-                <span className="text-[10px] text-muted">
+                <span className="text-xs text-muted">
                   The backend creates this project-local workspace and writes PROJECT_BRIEF.md.
                 </span>
               </label>
@@ -380,7 +387,7 @@ export function NewSessionModal({
                     Autonomous controller
                   </button>
                 </div>
-                <p className="text-[10px] text-muted mt-2 mb-0">
+                <p className="text-xs text-muted mt-2 mb-0">
                   {approvalMode === "manual"
                     ? "The OpenRouter controller monitors the agent, but tool requests wait for a human decision."
                     : "The OpenRouter controller may approve expected non-harmful operations. High-risk actions still require a human."}
@@ -394,7 +401,7 @@ export function NewSessionModal({
               <section className="flex flex-col gap-3">
                 <div>
                   <div className="section-label">Operating constraints</div>
-                  <p className="text-[11px] text-muted leading-relaxed">
+                  <p className="text-xs text-muted leading-relaxed">
                     One enforceable constraint per line. These are persisted in the session manifest and brief.
                   </p>
                 </div>
@@ -434,7 +441,7 @@ export function NewSessionModal({
             <div className="flex flex-col gap-4">
               <div>
                 <div className="section-label">Agent pipeline</div>
-                <p className="text-[11px] text-muted leading-relaxed mb-0">
+                <p className="text-xs text-muted leading-relaxed mb-0">
                   Each work stage runs through an adversarial critic, then an independent acceptance reviewer.
                 </p>
               </div>
@@ -520,12 +527,12 @@ export function NewSessionModal({
                     >
                       <span className={`status-dot ${item.ok ? "status-ok" : "status-error"}`} />
                       <span className="text-xs text-fg-dim">{item.label}</span>
-                      <span className="text-[11px] font-mono text-right break-all">{item.value}</span>
+                      <span className="text-xs font-mono text-right break-all">{item.value}</span>
                     </div>
                   ))}
                 </div>
                 {preflightError && (
-                  <div className="mt-3 flex items-center gap-2 text-danger text-[11px]">
+                  <div className="mt-3 flex items-center gap-2 text-danger text-xs">
                     <span>Preflight failed: {preflightError}</span>
                     <button
                       onClick={() => setPreflightNonce((value) => value + 1)}
@@ -536,11 +543,14 @@ export function NewSessionModal({
                   </div>
                 )}
                 {!preflightError && !systemPreflight && (
-                  <p className="text-muted text-[11px]">Running system checks...</p>
+                  <p className="text-muted text-xs">Running system checks...</p>
                 )}
-                {systemPreflight && !systemPreflight.ready && (
-                  <p className="text-danger text-[11px]">
+                {systemPreflight && !canCreate && (
+                  <p className="text-danger text-xs">
                     Resolve failed required checks before starting.
+                    {approvalMode === "autonomous" && !systemPreflight.checks.controller?.ok
+                      ? " Autonomous mode requires a configured controller."
+                      : ""}
                   </p>
                 )}
               </section>
@@ -565,14 +575,14 @@ export function NewSessionModal({
           )}
 
           {err && (
-            <div className="mt-4 text-danger text-[11px] bg-danger/10 border border-danger/40 rounded-lg px-3 py-2">
+            <div className="mt-4 text-danger text-xs bg-danger/10 border border-danger/40 rounded-lg px-3 py-2">
               {err}
             </div>
           )}
         </div>
 
         <footer className="flex items-center gap-2 px-5 py-3 border-t border-line bg-ink-900">
-          <span className="text-[10px] text-muted">
+          <span className="text-xs text-muted">
             Step {step + 1} of {STEPS.length}
           </span>
           <div className="ml-auto flex gap-2">
@@ -594,7 +604,7 @@ export function NewSessionModal({
             ) : (
               <button
                 onClick={create}
-                disabled={busy || !online || !systemPreflight?.ready}
+                disabled={busy || !canCreate}
                 className="primary-button disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {busy ? "Starting..." : "Create and start"}

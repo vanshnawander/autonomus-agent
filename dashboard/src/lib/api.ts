@@ -16,6 +16,8 @@ import type {
   SessionResponse,
   SessionSummary,
   AgentSummary,
+  AgentStateResponse,
+  LaunchAuxiliaryAgentRequest,
 } from "./types";
 
 // Base URL for the orchestrator API. Empty string means "same origin" which
@@ -82,6 +84,25 @@ export const apiClient = {
   restartAgent: (sid: string, aid: string, resume = true) =>
     api<{ agent_id: string; restarted: boolean; resume: boolean }>(
       `/sessions/${encodeURIComponent(sid)}/agents/${encodeURIComponent(aid)}/restart?resume=${resume}`,
+      { method: "POST" },
+    ),
+  launchAuxiliary: (sid: string, req: LaunchAuxiliaryAgentRequest) =>
+    api<AgentStateResponse>(`/sessions/${encodeURIComponent(sid)}/agents`, {
+      method: "POST", body: JSON.stringify(req),
+    }),
+  pauseAgent: (sid: string, aid: string) =>
+    api<{ agent_id: string; status: string }>(
+      `/sessions/${encodeURIComponent(sid)}/agents/${encodeURIComponent(aid)}/pause`,
+      { method: "POST" },
+    ),
+  resumeAgentProcess: (sid: string, aid: string) =>
+    api<{ agent_id: string; status: string }>(
+      `/sessions/${encodeURIComponent(sid)}/agents/${encodeURIComponent(aid)}/resume-process`,
+      { method: "POST" },
+    ),
+  stopAgent: (sid: string, aid: string) =>
+    api<{ agent_id: string; status: string }>(
+      `/sessions/${encodeURIComponent(sid)}/agents/${encodeURIComponent(aid)}/stop`,
       { method: "POST" },
     ),
   listApprovals: (sid: string) =>
@@ -167,8 +188,11 @@ export const apiClient = {
 export function openEventStream(
   sid: string,
   onEvent: (e: Event) => void,
+  onState?: (state: "connecting" | "connected" | "retrying") => void,
 ): () => void {
+  onState?.("connecting");
   const es = new EventSource(`${BASE}/sessions/${encodeURIComponent(sid)}/events`);
+  es.onopen = () => onState?.("connected");
   es.onmessage = (ev) => {
     try {
       onEvent(JSON.parse(ev.data) as Event);
@@ -176,9 +200,7 @@ export function openEventStream(
       /* ignore malformed */
     }
   };
-  es.onerror = () => {
-    /* EventSource auto-reconnects; nothing to do here. */
-  };
+  es.onerror = () => onState?.("retrying");
   return () => es.close();
 }
 

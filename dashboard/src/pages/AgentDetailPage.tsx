@@ -47,7 +47,7 @@ function AgentDetailInner({ sid, aid }: { sid: string; aid: string }) {
   const isQualityGate = agent?.role === "reviewer" || agent?.role === "critic";
 
   return (
-    <div className="flex flex-col gap-3.5">
+    <div className="detail-page">
       <Breadcrumbs
         items={[
           { label: "sessions", to: "/" },
@@ -57,15 +57,18 @@ function AgentDetailInner({ sid, aid }: { sid: string; aid: string }) {
         ]}
       />
 
-      <div className="flex items-center gap-3">
-        <h1 className="text-lg font-semibold font-mono m-0">{aid}</h1>
+      <div className="detail-hero">
+        <div>
+          <span className="section-kicker">Agent workspace</span>
+          <h1>{aid}</h1>
+        </div>
         <span className="text-muted text-xs">
           role: {agent?.role ?? "—"} · status: {agent?.status ?? "—"}
         </span>
         {isQualityGate && (
           <Link
             to={`/sessions/${sid}/quality`}
-            className="ml-auto text-xs text-accent2 border border-accent2 rounded px-2 py-1 hover:bg-accent2/10"
+            className="quality-link"
           >
             Quality gates →
           </Link>
@@ -121,7 +124,7 @@ function AgentDetailInner({ sid, aid }: { sid: string; aid: string }) {
                         {Object.keys(a.files).length} files
                       </span>
                     </div>
-                    <div className="text-muted text-[10px] mt-1 truncate">
+                    <div className="text-muted text-xs mt-1 truncate">
                       {Object.keys(a.files).join(", ")}
                     </div>
                   </button>
@@ -129,7 +132,7 @@ function AgentDetailInner({ sid, aid }: { sid: string; aid: string }) {
                 {attemptId && (
                   <button
                     onClick={() => setAttemptId(undefined)}
-                    className="text-left text-[11px] text-muted hover:text-accent"
+                    className="text-left text-xs text-muted hover:text-accent"
                   >
                     ↳ show latest attempt
                   </button>
@@ -144,7 +147,7 @@ function AgentDetailInner({ sid, aid }: { sid: string; aid: string }) {
           <Card
             title="Raw PTY Output"
             right={
-              <span className="text-[10px] text-muted">
+              <span className="text-xs text-muted">
                 {raw ? `${raw.size_bytes} bytes` : ""}
               </span>
             }
@@ -162,7 +165,7 @@ function AgentDetailInner({ sid, aid }: { sid: string; aid: string }) {
             {!controller || !controller.length ? (
               <Empty>No controller decisions recorded.</Empty>
             ) : (
-              <div className="font-mono text-[11px] max-h-72 overflow-y-auto">
+              <div className="font-mono text-xs max-h-72 overflow-y-auto">
                 {controller.map((c: ControllerEntry, i: number) => (
                   <div key={i} className="py-1 border-b border-line/40">
                     <div className="text-muted">{fmtTs(c.timestamp)}</div>
@@ -189,7 +192,7 @@ function AgentDetailInner({ sid, aid }: { sid: string; aid: string }) {
             {!audit || !audit.length ? (
               <Empty>No audit events.</Empty>
             ) : (
-              <div className="font-mono text-[11px] max-h-72 overflow-y-auto">
+              <div className="font-mono text-xs max-h-72 overflow-y-auto">
                 {audit.map((a: AuditEntry, i: number) => (
                   <div key={i} className="py-1 border-b border-line/40">
                     <span className="text-muted">{fmtTs(a.timestamp)}</span>{" "}
@@ -213,7 +216,7 @@ function AgentDetailInner({ sid, aid }: { sid: string; aid: string }) {
             {!feedback || !feedback.length ? (
               <Empty>No feedback sent.</Empty>
             ) : (
-              <div className="font-mono text-[11px] max-h-60 overflow-y-auto">
+              <div className="font-mono text-xs max-h-60 overflow-y-auto">
                 {feedback.map((f: FeedbackEntry, i: number) => (
                   <div key={i} className="py-1 border-b border-line/40">
                     <span className="text-muted">{fmtTs(f.timestamp)}</span>{" "}
@@ -232,7 +235,7 @@ function AgentDetailInner({ sid, aid }: { sid: string; aid: string }) {
               <div className="flex flex-col gap-2 max-h-80 overflow-y-auto">
                 {screens.map((s: ScreenSnapshot, i: number) => (
                   <div key={i} className="border border-line rounded p-2">
-                    <div className="text-muted text-[10px] mb-1">
+                    <div className="text-muted text-xs mb-1">
                       {fmtTs(s.timestamp)}
                     </div>
                     <Terminal text={s.screen ?? ""} className="h-32" />
@@ -257,7 +260,7 @@ function StatusBadge({ status }: { status: string }) {
           ? "text-danger border-danger"
           : "text-muted border-line";
   return (
-    <span className={`text-[10px] px-1.5 py-0.5 rounded border ${color}`}>
+    <span className={`text-xs px-1.5 py-0.5 rounded border ${color}`}>
       {status}
     </span>
   );

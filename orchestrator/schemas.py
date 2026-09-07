@@ -6,7 +6,15 @@ Everything else here is for the FastAPI surface.
 from __future__ import annotations
 
 from enum import Enum
+import itertools
+import uuid
 from typing import Any, Optional
+
+_EVENT_BOOT = uuid.uuid4().hex[:12]
+_EVENT_SEQUENCE = itertools.count(1)
+
+def next_event_id() -> str:
+    return f"{_EVENT_BOOT}:{next(_EVENT_SEQUENCE)}"
 
 from pydantic import BaseModel, Field
 
@@ -114,6 +122,17 @@ class AgentSpec(BaseModel):
     )
 
 
+class LaunchAuxiliaryAgentRequest(BaseModel):
+    agent_id: str = Field(
+        ..., min_length=1, max_length=80, pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]*$"
+    )
+    role: str
+    prompt: str = Field(..., min_length=1)
+    model: Optional[str] = Field(None, max_length=100)
+    cwd: Optional[str] = None
+    resume_session_id: Optional[str] = Field(None, max_length=100)
+
+
 class CreateSessionRequest(BaseModel):
     session_id: str = Field(
         ..., min_length=1, max_length=100, pattern=r"^[A-Za-z0-9][A-Za-z0-9_.-]*$",
@@ -162,6 +181,11 @@ class AgentStateResponse(BaseModel):
     last_decision: Optional[ControllerDecision] = None
     devin_session_id: Optional[str] = None
     pending_approval: Optional[str] = None
+    kind: str = "pipeline"
+    model: Optional[str] = None
+    started_at: Optional[float] = None
+    finished_at: Optional[float] = None
+    alive: bool = False
 
 
 class SessionResponse(BaseModel):
@@ -169,6 +193,7 @@ class SessionResponse(BaseModel):
     goal: str
     agents: dict[str, AgentStateResponse] = Field(default_factory=dict)
     active_agent: Optional[str] = None
+    active_agents: list[str] = Field(default_factory=list)
     done: bool = False
     approval_mode: ApprovalMode = ApprovalMode.manual
     workspace: Optional[str] = None
@@ -200,6 +225,7 @@ class SessionSummary(BaseModel):
 
 
 class Event(BaseModel):
+    event_id: Optional[str] = None
     type: str
     session_id: str
     agent_id: Optional[str] = None

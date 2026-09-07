@@ -99,6 +99,20 @@ class PTYSession:
         with self._lock:
             return self.child is not None and self.child.isalive()
 
+    def pause(self) -> None:
+        with self._lock:
+            child = self.child
+        if child is None or not child.isalive():
+            raise RuntimeError(f"Agent {self.agent_id} is not running")
+        os.killpg(os.getpgid(child.pid), 19)  # SIGSTOP
+
+    def resume(self) -> None:
+        with self._lock:
+            child = self.child
+        if child is None or not child.isalive():
+            raise RuntimeError(f"Agent {self.agent_id} is not running")
+        os.killpg(os.getpgid(child.pid), 18)  # SIGCONT
+
     # ------------------------------------------------------------------ input
 
     def send_text(self, text: str) -> None:
@@ -244,6 +258,7 @@ class PTYManager:
         resume_session_id: Optional[str] = None,
         export_path: Optional[str] = None,
         permission_mode: Optional[str] = None,
+        model: Optional[str] = None,
     ) -> str:
         """Construct the `devin` invocation for a role.
 
@@ -266,8 +281,9 @@ class PTYManager:
         parts = [settings.devin_command]
         if resume_session_id:
             parts += ["-r", resume_session_id]
-        if settings.devin_model:
-            parts += ["--model", settings.devin_model]
+        selected_model = model or settings.devin_model
+        if selected_model:
+            parts += ["--model", selected_model]
         extra = shlex.split(settings.devin_extra_args.strip())
         # The orchestration mode owns Devin approval behavior. Strip legacy
         # permission and print flags so environment settings cannot bypass the controller.

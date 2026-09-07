@@ -59,17 +59,17 @@ export function LiveLogTerminal({
         <span className={`terminal-state ${paused ? "is-paused" : ""}`}>
           {paused ? "PAUSED" : "LIVE"}
         </span>
-        <span className="text-[10px] text-faint font-mono">{filtered.length} lines</span>
+        <span className="text-xs text-faint font-mono">{filtered.length} lines</span>
         <div className="ml-auto flex items-center gap-1.5">
           <input
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
             placeholder="filter…"
-            className="bg-ink-950/60 border border-line/60 rounded-lg px-2 py-1 font-mono text-[10px] w-28 focus:border-accent focus:outline-none transition-colors"
+            className="bg-ink-950/60 border border-line/60 rounded-lg px-2 py-1 font-mono text-xs w-28 focus:border-accent focus:outline-none transition-colors"
           />
           <button
             onClick={() => setPaused((p) => !p)}
-            className={`px-2.5 py-1 rounded-lg border text-[10px] font-mono transition-colors ${
+            className={`px-2.5 py-1 rounded-lg border text-xs font-mono transition-colors ${
               paused
                 ? "text-warn border-warn/40 bg-warn/10"
                 : "text-accent2 border-accent2/40 bg-accent2/10 hover:bg-accent2/20"
@@ -82,7 +82,7 @@ export function LiveLogTerminal({
       </div>
       <div
         ref={ref}
-        className="terminal-log-screen flex-1 overflow-y-auto p-3 font-mono text-[11px] leading-[1.55] text-[#c8d0e0]"
+        className="terminal-log-screen flex-1 overflow-y-auto p-3 font-mono text-xs leading-[1.55] text-[#c8d0e0]"
       >
         {filtered.length === 0 ? (
           <div className="text-faint">{emptyHint}</div>

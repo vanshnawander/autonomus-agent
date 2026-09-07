@@ -8,7 +8,7 @@ export function HealthBar({
   online: boolean;
 }) {
   return (
-    <div className="flex items-center gap-2 font-mono text-[11px] px-3 py-1.5 rounded-lg bg-ink-950/40 border border-line/60">
+    <div className="flex items-center gap-2 font-mono text-xs px-3 py-1.5 rounded-lg bg-ink-950/40 border border-line/60">
       <span
         className={`w-2 h-2 rounded-full ${
           online ? "bg-accent2 pulse-soft" : "bg-danger"

@@ -10,7 +10,7 @@ const RISK_COLOR: Record<string, string> = {
 export function DecisionView({ d }: { d: ControllerDecision | null | undefined }) {
   if (!d) return null;
   return (
-    <div className="mt-1 pt-3 border-t border-line-soft font-mono text-[11px]">
+    <div className="mt-1 pt-3 border-t border-line-soft font-mono text-xs">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
         <span className="text-muted">
           state <span className="text-fg">{d.state}</span>

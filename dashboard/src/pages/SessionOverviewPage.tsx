@@ -22,11 +22,18 @@ export function SessionOverviewPage() {
 
 function SessionOverviewInner({ sid }: { sid: string }) {
   const { session, error } = useSession(sid);
-  const liveEvents = useSessionEvents(sid);
+  const { events: liveEvents, connection: eventConnection } = useSessionEvents(sid);
   const { data: recordedEvents } = useRecordedEvents(sid, 200);
   const [approvals, setApprovals] = useState<ApprovalItem[]>([]);
   const [handoffs, setHandoffs] = useState<HandoffRecord[]>([]);
   const [resuming, setResuming] = useState(false);
+  const [auxOpen, setAuxOpen] = useState(false);
+  const [auxId, setAuxId] = useState("");
+  const [auxRole, setAuxRole] = useState("methodology");
+  const [auxModel, setAuxModel] = useState("");
+  const [auxPrompt, setAuxPrompt] = useState("");
+  const [auxBusy, setAuxBusy] = useState(false);
+  const [operationError, setOperationError] = useState<string | null>(null);
 
   const events: Event[] = liveEvents.length ? liveEvents : recordedEvents ?? [];
   const isRecorded = session?.live === false;
@@ -94,6 +101,23 @@ function SessionOverviewInner({ sid }: { sid: string }) {
     }
   };
 
+  const handleLaunchAux = async () => {
+    if (!auxId.trim() || !auxPrompt.trim() || auxBusy) return;
+    setAuxBusy(true);
+    setOperationError(null);
+    try {
+      await apiClient.launchAuxiliary(sid, {
+        agent_id: auxId.trim(), role: auxRole, prompt: auxPrompt.trim(),
+        model: auxModel.trim() || null,
+      });
+      setAuxId(""); setAuxPrompt(""); setAuxOpen(false);
+    } catch (e) {
+      setOperationError((e as Error).message);
+    } finally {
+      setAuxBusy(false);
+    }
+  };
+
   const handleDelete = async () => {
     if (!confirm(`Stop and delete session ${sid}?`)) return;
     try {
@@ -117,13 +141,16 @@ function SessionOverviewInner({ sid }: { sid: string }) {
                   session.active_agent ? "bg-accent pulse-soft" : session.done ? "bg-accent2" : "bg-faint"
                 }`}
               />
-              <span className="text-muted text-[11px] uppercase tracking-wider font-mono">
+              <span className="text-muted text-xs uppercase tracking-wider font-mono">
                 {isRecorded ? "recorded session" : session.done ? "completed" : session.active_agent ? "running" : "idle"}
               </span>
             </div>
             <div className="text-[15px] mt-2 leading-relaxed">{session.goal}</div>
           </div>
           <div className="flex items-center gap-2">
+            <button onClick={() => setAuxOpen((value) => !value)} className="primary-button">
+              {auxOpen ? "Close launcher" : "Launch agent"}
+            </button>
             {hasQualityGate && (
               <Link
                 to={`/sessions/${sid}/quality`}
@@ -164,6 +191,22 @@ function SessionOverviewInner({ sid }: { sid: string }) {
         />
       </section>
 
+      {operationError && <ErrorBox msg={operationError} />}
+      {auxOpen && (
+        <section className="card-elevated p-4">
+          <div className="session-section-heading"><div><span className="section-kicker">Supervision</span><h2>Launch auxiliary agent</h2></div></div>
+          <div className="grid gap-3 md:grid-cols-3">
+            <input value={auxId} onChange={(e) => setAuxId(e.target.value)} placeholder="agent id" className="bg-ink-950/60 border border-line rounded-xl px-3 py-2" />
+            <select value={auxRole} onChange={(e) => setAuxRole(e.target.value)} className="bg-ink-950/60 border border-line rounded-xl px-3 py-2">
+              <option value="literature-survey">Literature survey</option><option value="critic">Critic</option><option value="reviewer">Reviewer</option><option value="methodology">Methodology</option><option value="experiment-executor">Experiment executor</option><option value="paper-writer">Paper writer</option>
+            </select>
+            <input value={auxModel} onChange={(e) => setAuxModel(e.target.value)} placeholder="model (server default)" className="bg-ink-950/60 border border-line rounded-xl px-3 py-2" />
+          </div>
+          <textarea value={auxPrompt} onChange={(e) => setAuxPrompt(e.target.value)} placeholder="Concrete task and completion criteria" className="mt-3 w-full min-h-28 bg-ink-950/60 border border-line rounded-xl px-3 py-2" />
+          <button disabled={auxBusy || !auxId.trim() || !auxPrompt.trim()} onClick={handleLaunchAux} className="primary-button mt-3 disabled:opacity-40">{auxBusy ? "Launching…" : "Launch managed agent"}</button>
+        </section>
+      )}
+
       {approvals.length > 0 && (
         <section id="review-queue">
           <Approvals items={approvals} onResolve={handleResolve} />
@@ -182,7 +225,7 @@ function SessionOverviewInner({ sid }: { sid: string }) {
         <section className="session-section">
           <div className="session-section-heading">
             <div><span className="section-kicker">Telemetry</span><h2>Event stream</h2></div>
-            <span>{events.length} events</span>
+            <span>{events.length} events · {eventConnection}</span>
           </div>
           <LiveLogTerminal
             events={events}

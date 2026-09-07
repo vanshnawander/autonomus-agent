@@ -88,6 +88,23 @@ function AgentPanel({
     }
   };
 
+  const pauseOrResume = async () => {
+    try {
+      if (agent.status === "paused") await apiClient.resumeAgentProcess(sid, aid);
+      else await apiClient.pauseAgent(sid, aid);
+    } catch (e) {
+      alert((e as Error).message);
+    }
+  };
+
+  const stop = async () => {
+    try {
+      await apiClient.stopAgent(sid, aid);
+    } catch (e) {
+      alert((e as Error).message);
+    }
+  };
+
   const restart = async () => {
     if (!confirm(`Restart agent ${aid}? (resume=true)`)) return;
     try {
@@ -104,18 +121,28 @@ function AgentPanel({
         <span className="agent-role-code">{roleCode(agent.role)}</span>
         <div className="flex flex-col">
           <span className="font-mono text-sm font-semibold">{aid}</span>
-          <span className="text-muted text-[11px]">{agent.role}</span>
+          <span className="text-muted text-xs">{agent.role}{agent.kind === "auxiliary" ? " · auxiliary" : ""}{agent.model ? ` · ${agent.model}` : ""}</span>
         </div>
         <div className="ml-auto flex items-center gap-2">
           {agent.devin_session_id && (
-            <span className="text-faint text-[10px] font-mono hidden sm:inline">
+            <span className="text-faint text-xs font-mono hidden sm:inline">
               devin: {agent.devin_session_id.slice(0, 12)}…
             </span>
           )}
           <StatusPill status={agent.status} />
+          {agent.alive && (
+            <button onClick={pauseOrResume} className="text-xs px-2 py-1 rounded-md border border-line text-muted hover:border-warn hover:text-warn transition-colors">
+              {agent.status === "paused" ? "▶ Resume" : "Ⅱ Pause"}
+            </button>
+          )}
+          {agent.alive && (
+            <button onClick={stop} className="text-xs px-2 py-1 rounded-md border border-danger/50 text-danger hover:bg-danger/10 transition-colors">
+              Stop
+            </button>
+          )}
           <button
             onClick={restart}
-            className="text-[11px] px-2 py-1 rounded-md border border-line text-muted hover:border-accent hover:text-accent transition-colors"
+            className="text-xs px-2 py-1 rounded-md border border-line text-muted hover:border-accent hover:text-accent transition-colors"
           >
             ↻ Restart
           </button>
@@ -146,7 +173,7 @@ function AgentPanel({
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && sendInput()}
             placeholder="send a line to the agent… (Enter)"
-            className="flex-1 bg-ink-950/60 border border-line/60 rounded-xl px-3 py-2 font-mono text-[11px] focus:border-accent focus:outline-none transition-colors"
+            className="flex-1 bg-ink-950/60 border border-line/60 rounded-xl px-3 py-2 font-mono text-xs focus:border-accent focus:outline-none transition-colors"
           />
           <button
             onClick={sendInput}
@@ -163,7 +190,7 @@ function AgentPanel({
           <select
             value={mode}
             onChange={(e) => setMode(e.target.value as FeedbackMode)}
-            className="bg-ink-950/60 border border-line/60 rounded-xl px-2.5 py-2 text-[11px] w-[110px] focus:outline-none"
+            className="bg-ink-950/60 border border-line/60 rounded-xl px-2.5 py-2 text-xs w-[110px] focus:outline-none"
           >
             <option value="context">context</option>
             <option value="immediate">immediate</option>
@@ -173,7 +200,7 @@ function AgentPanel({
             value={feedback}
             onChange={(e) => setFeedback(e.target.value)}
             placeholder="Feedback / guidance for this agent…"
-            className="flex-1 min-h-[40px] bg-ink-950/60 border border-line/60 rounded-xl px-3 py-2 font-mono text-[11px] resize-y focus:border-accent focus:outline-none transition-colors"
+            className="flex-1 min-h-[40px] bg-ink-950/60 border border-line/60 rounded-xl px-3 py-2 font-mono text-xs resize-y focus:border-accent focus:outline-none transition-colors"
           />
           <button
             onClick={sendFeedback}
@@ -250,12 +277,12 @@ export function AgentTabs({
               <span className="agent-role-code">{roleCode(a.role)}</span>
               <span className="agent-roster-copy"><strong>{aid}</strong><small>{a.role}</small></span>
               {isLive && (
-                <span className="text-[9px] px-1.5 py-0 rounded-full bg-accent/20 text-accent font-mono font-semibold border border-accent/30">
+                <span className="text-xs px-1.5 py-0 rounded-full bg-accent/20 text-accent font-mono font-semibold border border-accent/30">
                   live
                 </span>
               )}
               {a.status === "done" && (
-                <span className="text-[9px] px-1.5 py-0 rounded-full bg-accent2/20 text-accent2 font-mono font-semibold border border-accent2/30">
+                <span className="text-xs px-1.5 py-0 rounded-full bg-accent2/20 text-accent2 font-mono font-semibold border border-accent2/30">
                   done
                 </span>
               )}

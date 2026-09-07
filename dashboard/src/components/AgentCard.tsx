@@ -71,13 +71,13 @@ export function AgentCard({
     <div className="bg-ink-900 border border-line rounded-xl overflow-hidden flex flex-col">
       <div className="flex items-center gap-2 px-3 py-2.5 border-b border-line bg-ink-800">
         <span className="font-semibold font-mono">{aid}</span>
-        <span className="text-muted text-[11px]">{agent.role}</span>
+        <span className="text-muted text-xs">{agent.role}</span>
         <span className="ml-auto">
           <StatusPill status={agent.status} />
         </span>
       </div>
       <div className="p-3 flex flex-col gap-2">
-        <div className="grid grid-cols-[80px_1fr] gap-1 text-[11px] font-mono">
+        <div className="grid grid-cols-[80px_1fr] gap-1 text-xs font-mono">
           <span className="text-muted">devin_id</span>
           <span className="truncate">{agent.devin_session_id ?? "—"}</span>
         </div>
@@ -88,7 +88,7 @@ export function AgentCard({
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && sendInput()}
             placeholder="type to send line… (Enter)"
-            className="flex-1 bg-ink-950 border border-line rounded px-2 py-1 font-mono text-[11px]"
+            className="flex-1 bg-ink-950 border border-line rounded px-2 py-1 font-mono text-xs"
           />
           <button
             onClick={sendInput}
@@ -128,7 +128,7 @@ export function AgentCard({
           <select
             value={mode}
             onChange={(e) => setMode(e.target.value as FeedbackMode)}
-            className="bg-ink-950 border border-line rounded px-2 py-1 text-[11px] w-[110px]"
+            className="bg-ink-950 border border-line rounded px-2 py-1 text-xs w-[110px]"
           >
             <option value="context">context</option>
             <option value="immediate">immediate</option>
@@ -138,7 +138,7 @@ export function AgentCard({
             value={feedback}
             onChange={(e) => setFeedback(e.target.value)}
             placeholder="Feedback / guidance for this agent…"
-            className="flex-1 min-h-[40px] bg-ink-950 border border-line rounded px-2 py-1 font-mono text-[11px] resize-y"
+            className="flex-1 min-h-[40px] bg-ink-950 border border-line rounded px-2 py-1 font-mono text-xs resize-y"
           />
           <button
             onClick={sendFeedback}
@@ -148,7 +148,7 @@ export function AgentCard({
           </button>
         </div>
         {agent.pending_approval && (
-          <div className="mt-1 px-2 py-1.5 bg-warn/10 border border-warn rounded text-[11px]">
+          <div className="mt-1 px-2 py-1.5 bg-warn/10 border border-warn rounded text-xs">
             <span className="font-semibold">Approval:</span> {agent.pending_approval}
           </div>
         )}

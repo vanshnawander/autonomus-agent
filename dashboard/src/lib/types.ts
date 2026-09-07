@@ -58,6 +58,11 @@ export interface AgentStateResponse {
   last_decision?: ControllerDecision | null;
   devin_session_id?: string | null;
   pending_approval?: string | null;
+  kind?: "pipeline" | "auxiliary";
+  model?: string | null;
+  started_at?: number | null;
+  finished_at?: number | null;
+  alive?: boolean;
 }
 
 export interface SessionResponse {
@@ -65,6 +70,7 @@ export interface SessionResponse {
   goal: string;
   agents?: Record<string, AgentStateResponse>;
   active_agent?: string | null;
+  active_agents?: string[];
   done: boolean;
   live?: boolean;
   approval_mode?: ApprovalMode;
@@ -110,6 +116,15 @@ export interface CreateSessionRequest {
   project_brief: string;
 }
 
+export interface LaunchAuxiliaryAgentRequest {
+  agent_id: string;
+  role: string;
+  prompt: string;
+  model?: string | null;
+  cwd?: string | null;
+  resume_session_id?: string | null;
+}
+
 export interface ApprovalItem {
   id: string;
   session_id: string;
@@ -120,6 +135,7 @@ export interface ApprovalItem {
 }
 
 export interface Event {
+  event_id?: string | null;
   type: string;
   session_id: string;
   agent_id?: string | null;

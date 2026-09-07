@@ -6,7 +6,7 @@ export function Breadcrumbs({
   items: { label: string; to?: string }[];
 }) {
   return (
-    <div className="flex items-center gap-1.5 text-[11px] text-muted font-mono mb-3">
+    <div className="flex items-center gap-1.5 text-xs text-muted font-mono mb-3">
       {items.map((it, i) => (
         <span key={i} className="flex items-center gap-1.5">
           {it.to ? (

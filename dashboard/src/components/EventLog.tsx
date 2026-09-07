@@ -10,7 +10,7 @@ export function EventLog({ events }: { events: Event[] }) {
     return <div className="text-muted text-xs p-2">no events yet</div>;
   }
   return (
-    <div className="font-mono text-[11px] max-h-[320px] overflow-y-auto">
+    <div className="font-mono text-xs max-h-[320px] overflow-y-auto">
       {events.map((e, i) => (
         <div key={i} className="flex gap-2 py-0.5 border-b border-line/40">
           <span className="text-muted shrink-0 w-[70px]">{fmtTs(e.timestamp)}</span>

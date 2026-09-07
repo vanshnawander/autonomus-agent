@@ -89,7 +89,7 @@ export function HomePage() {
         <section className="notice notice-error">
           <div>
             <strong>Orchestrator API is offline.</strong>
-            <div className="mt-1 text-[11px]">
+            <div className="mt-1 text-xs">
               Start it from the configured Conda environment, then refresh this page.
             </div>
           </div>
@@ -103,7 +103,7 @@ export function HomePage() {
             <h2>Sessions</h2>
             <span>{liveCount} live, {sessions.length - liveCount} recorded</span>
           </div>
-          {error && <span className="text-danger text-[11px]">{error}</span>}
+          {error && <span className="text-danger text-xs">{error}</span>}
         </div>
 
         {sessions.length === 0 ? (
@@ -139,7 +139,7 @@ export function HomePage() {
                         >
                           {session.session_id}
                         </Link>
-                        <div className="text-[11px] text-muted mt-1 line-clamp-2">
+                        <div className="text-xs text-muted mt-1 line-clamp-2">
                           {session.goal || "No goal recorded"}
                         </div>
                       </td>
@@ -148,12 +148,12 @@ export function HomePage() {
                           {state.label}
                         </span>
                       </td>
-                      <td data-label="Active agent" className="font-mono text-[11px]">
+                      <td data-label="Active agent" className="font-mono text-xs">
                         {session.active_agent ?? "-"}
                       </td>
                       <td data-label="Agents">{session.agent_count}</td>
                       <td data-label="Events">{session.events_count}</td>
-                      <td data-label="Updated" className="text-muted text-[11px]">
+                      <td data-label="Updated" className="text-muted text-xs">
                         {fmtRelative(session.last_event_at ?? session.created_at)}
                       </td>
                     </tr>
@@ -180,10 +180,10 @@ export function HomePage() {
               className="template-row"
             >
               <span className="font-semibold text-sm">{preset.label}</span>
-              <span className="text-muted text-[11px] leading-relaxed mt-1.5">
+              <span className="text-muted text-xs leading-relaxed mt-1.5">
                 {preset.description}
               </span>
-              <span className="text-[10px] font-mono text-fg-dim mt-3">
+              <span className="text-xs font-mono text-fg-dim mt-3">
                 {preset.agents.length} agents
               </span>
             </button>
@@ -234,7 +234,7 @@ function StatusMetric({
     <div className="status-metric">
       <span className={`status-dot ${state ? "status-ok" : "status-error"}`} />
       <div>
-        <div className="text-[10px] uppercase text-muted">{label}</div>
+        <div className="text-xs uppercase text-muted">{label}</div>
         <div className="text-xs font-mono truncate" title={value}>
           {value}
         </div>

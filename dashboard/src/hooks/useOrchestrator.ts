@@ -203,18 +203,26 @@ export function useSession(sid: string | null, intervalMs = 2500) {
 /** Subscribes to the session SSE event stream; returns the accumulated events. */
 export function useSessionEvents(sid: string | null) {
   const [events, setEvents] = useState<Event[]>([]);
+  const [connection, setConnection] = useState<"connecting" | "connected" | "retrying">("connecting");
+  const seen = useRef(new Set<string>());
   useEffect(() => {
     if (!sid) return;
     setEvents([]);
+    seen.current.clear();
     const close = openEventStream(sid, (e) => {
+      if (e.event_id && seen.current.has(e.event_id)) return;
+      if (e.event_id) {
+        seen.current.add(e.event_id);
+        if (seen.current.size > 1000) seen.current.delete(seen.current.values().next().value!);
+      }
       setEvents((prev) => {
         const next = [...prev, e];
         return next.length > 300 ? next.slice(-300) : next;
       });
-    });
+    }, setConnection);
     return close;
   }, [sid]);
-  return events;
+  return { events, connection };
 }
 
 /** Subscribes to the global SSE stream (all sessions + heartbeats). */

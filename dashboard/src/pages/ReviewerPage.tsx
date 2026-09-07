@@ -26,7 +26,7 @@ export function ReviewerPage() {
 
 function ReviewerInner({ sid }: { sid: string }) {
   const { session, error } = useSession(sid);
-  const events = useSessionEvents(sid);
+  const { events } = useSessionEvents(sid);
 
   if (error) return <ErrorBox msg={error} />;
   if (!session) return <Spinner label="loading session…" />;
@@ -56,7 +56,7 @@ function ReviewerInner({ sid }: { sid: string }) {
   }));
 
   return (
-    <div className="flex flex-col gap-3.5">
+    <div className="detail-page">
       <Breadcrumbs
         items={[
           { label: "sessions", to: "/" },
@@ -65,8 +65,11 @@ function ReviewerInner({ sid }: { sid: string }) {
         ]}
       />
 
-      <div className="flex items-center gap-3">
-        <h1 className="text-lg font-semibold m-0">Quality Gates</h1>
+      <div className="detail-hero quality-hero">
+        <div>
+          <span className="section-kicker">Independent review</span>
+          <h1>Quality gates</h1>
+        </div>
         <span className="text-muted text-xs">
           {reviewers.length} critic/reviewer agent(s) · {reviewEvents.length} gate events
         </span>
@@ -115,7 +118,7 @@ function ReviewerInner({ sid }: { sid: string }) {
         {!reviewEvents.length ? (
           <Empty>No quality-gate events yet.</Empty>
         ) : (
-          <div className="font-mono text-[11px] max-h-96 overflow-y-auto">
+          <div className="font-mono text-xs max-h-96 overflow-y-auto">
             {reviewEvents.map((e, i) => (
               <div key={i} className="flex gap-2 py-1 border-b border-line/40">
                 <span className="text-muted shrink-0 w-[70px]">{fmtTs(e.timestamp)}</span>
@@ -191,7 +194,7 @@ function ReviewerAgentPanel({
           status: {agent.status} · devin: {agent.devin_session_id ?? "—"}
         </div>
         <Terminal text={raw?.content ?? agent.visible_screen ?? ""} className="h-48" />
-        <div className="text-[11px] font-mono">
+        <div className="text-xs font-mono">
           <div className="text-muted uppercase tracking-wide mt-1">
             Recent controller decisions
           </div>
@@ -207,7 +210,7 @@ function ReviewerAgentPanel({
             ))
           )}
         </div>
-        <div className="text-[11px] font-mono">
+        <div className="text-xs font-mono">
           <div className="text-muted uppercase tracking-wide mt-1">Audit</div>
           {!audit || !audit.length ? (
             <Empty>none</Empty>
@@ -235,7 +238,7 @@ function VerdictBadge({ verdict }: { verdict: string }) {
       ? "text-danger border-danger bg-danger/10"
       : "text-warn border-warn bg-warn/10";
   return (
-    <span className={`text-[10px] px-2 py-0.5 rounded border ${cls}`}>
+    <span className={`text-xs px-2 py-0.5 rounded border ${cls}`}>
       {verdict}
     </span>
   );

@@ -24,7 +24,7 @@ export function Approvals({
           <span className="review-eyebrow">Action required</span>
           <h2>Human review queue</h2>
         </div>
-        <span className="text-[10px] px-2 py-0.5 rounded-full border border-warn/40 text-warn bg-warn/10 font-mono font-semibold">
+        <span className="text-xs px-2 py-0.5 rounded-full border border-warn/40 text-warn bg-warn/10 font-mono font-semibold">
           {items.length}
         </span>
       </div>
@@ -54,7 +54,7 @@ function ApprovalRow({
       <div className="review-question">
         {item.question}
         <span
-          className={`text-[10px] px-1.5 py-0.5 rounded-full border ${RISK_STYLES[item.risk] ?? RISK_STYLES.unknown}`}
+          className={`text-xs px-1.5 py-0.5 rounded-full border ${RISK_STYLES[item.risk] ?? RISK_STYLES.unknown}`}
         >
           {item.risk}
         </span>
@@ -65,7 +65,7 @@ function ApprovalRow({
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           placeholder="reason (optional)"
-          className="flex-1 bg-ink-950/60 border border-line/60 rounded-xl px-3 py-2 font-mono text-[11px] focus:border-accent focus:outline-none transition-colors"
+          className="flex-1 bg-ink-950/60 border border-line/60 rounded-xl px-3 py-2 font-mono text-xs focus:border-accent focus:outline-none transition-colors"
         />
         <button
           onClick={() => onResolve(item.id, true, reason)}

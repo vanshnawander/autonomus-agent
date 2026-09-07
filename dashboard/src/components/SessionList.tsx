@@ -23,7 +23,7 @@ export function SessionList({
       <div className="text-muted text-xs px-2 py-8 text-center">
         <div className="text-3xl mb-3 opacity-30">📋</div>
         <div className="text-fg-dim">no sessions yet</div>
-        <div className="mt-1 text-[10px] text-faint">
+        <div className="mt-1 text-xs text-faint">
           use "+ New Session" to start
         </div>
       </div>
@@ -71,10 +71,10 @@ export function SessionList({
                 {s.session_id}
               </span>
             </div>
-            <div className="text-fg-dim text-[11px] truncate mt-1.5 line-clamp-2 leading-snug">
+            <div className="text-fg-dim text-xs truncate mt-1.5 line-clamp-2 leading-snug">
               {s.goal || "(no goal recorded)"}
             </div>
-            <div className="flex flex-wrap gap-1.5 mt-2 text-[10px]">
+            <div className="flex flex-wrap gap-1.5 mt-2 text-xs">
               <span className={`px-1.5 py-0.5 rounded border ${stateCls}`}>
                 {stateLabel}
               </span>
@@ -89,7 +89,7 @@ export function SessionList({
                 </span>
               )}
             </div>
-            <div className="text-faint text-[10px] mt-1.5 font-mono">
+            <div className="text-faint text-xs mt-1.5 font-mono">
               {fmtRelative(s.last_event_at ?? s.created_at)}
             </div>
           </button>

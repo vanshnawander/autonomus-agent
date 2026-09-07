@@ -1,0 +1,1243 @@
+<!DOCTYPE html>
+<html class="client-nojs" lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<title>Ada User Guide - HPC</title>
+<script>document.documentElement.className="client-js";RLCONF={"wgBreakFrames":false,"wgSeparatorTransformTable":["",""],"wgDigitTransformTable":["",""],"wgDefaultDateFormat":"dmy","wgMonthNames":["","January","February","March","April","May","June","July","August","September","October","November","December"],"wgRequestId":"ap2q1VSPe_cvp6-uLtnrwAAAABA","wgCanonicalNamespace":"","wgCanonicalSpecialPageName":false,"wgNamespaceNumber":0,"wgPageName":"Ada_User_Guide","wgTitle":"Ada User Guide","wgCurRevisionId":96,"wgRevisionId":96,"wgArticleId":2,"wgIsArticle":true,"wgIsRedirect":false,"wgAction":"view","wgUserName":null,"wgUserGroups":["*"],"wgCategories":["Pages using deprecated source tags","Pages with syntax highlighting errors"],"wgPageViewLanguage":"en","wgPageContentLanguage":"en","wgPageContentModel":"wikitext","wgRelevantPageName":"Ada_User_Guide","wgRelevantArticleId":2,"wgIsProbablyEditable":false,"wgRelevantPageIsProbablyEditable":false,"wgRestrictionEdit":[],"wgRestrictionMove":[]};
+RLSTATE={"site.styles":"ready","user.styles":"ready","user":"ready","user.options":"loading","ext.pygments":"ready","skins.timeless":"ready"};RLPAGEMODULES=["site","mediawiki.page.ready","mediawiki.toc","skins.timeless.js"];</script>
+<script>(RLQ=window.RLQ||[]).push(function(){mw.loader.impl(function(){return["user.options@12s5i",function($,jQuery,require,module){mw.user.tokens.set({"patrolToken":"+\\","watchToken":"+\\","csrfToken":"+\\"});
+}];});});</script>
+<link rel="stylesheet" href="/wiki/load.php?lang=en&amp;modules=ext.pygments%7Cskins.timeless&amp;only=styles&amp;skin=timeless">
+<script async="" src="/wiki/load.php?lang=en&amp;modules=startup&amp;only=scripts&amp;raw=1&amp;skin=timeless"></script>
+<!--[if IE]><link rel="stylesheet" href="/wiki/skins/Timeless/resources/IE9fixes.css?ffe73" media="screen"><![endif]-->
+<meta name="generator" content="MediaWiki 1.42.1">
+<meta name="robots" content="max-image-preview:standard">
+<meta name="format-detection" content="telephone=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, minimum-scale=0.25, maximum-scale=5.0">
+<link rel="icon" href="/favicon.ico">
+<link rel="search" type="application/opensearchdescription+xml" href="/wiki/opensearch_desc.php" title="HPC (en)">
+<link rel="EditURI" type="application/rsd+xml" href="https://hpc.iiit.ac.in/wiki/api.php?action=rsd">
+<link rel="alternate" type="application/atom+xml" title="HPC Atom feed" href="/wiki/index.php?title=Special:RecentChanges&amp;feed=atom">
+</head>
+<body class="mediawiki ltr sitedir-ltr mw-hide-empty-elt ns-0 ns-subject page-Ada_User_Guide rootpage-Ada_User_Guide skin-timeless action-view skin--responsive"><div id="mw-wrapper"><div id="mw-header-container" class="ts-container"><div id="mw-header" class="ts-inner"><div id="user-tools"><div id="personal"><h2><span>Anonymous</span></h2><div id="personal-inner" class="dropdown"><div role="navigation" class="mw-portlet" id="p-personal" title="User menu" aria-labelledby="p-personal-label"><h3 id="p-personal-label" lang="en" dir="ltr">Not logged in</h3><div class="mw-portlet-body"><ul lang="en" dir="ltr"><li id="pt-login" class="mw-list-item"><a href="/wiki/index.php?title=Special:UserLogin&amp;returnto=Ada+User+Guide" title="You are encouraged to log in; however, it is not mandatory [o]" accesskey="o"><span>Log in</span></a></li></ul></div></div></div></div></div><div id="p-logo-text" class="mw-portlet" role="banner"><a id="p-banner" class="mw-wiki-title" href="/wiki/index.php?title=Main_Page">HPC</a></div><div class="mw-portlet" id="p-search"><h3 lang="en" dir="ltr"><label for="searchInput">Search</label></h3><form action="/wiki/index.php" id="searchform"><div id="simpleSearch"><div id="searchInput-container"><input type="search" name="search" placeholder="Search HPC" aria-label="Search HPC" autocapitalize="sentences" title="Search HPC [f]" accesskey="f" id="searchInput"></div><input type="hidden" value="Special:Search" name="title"><input class="searchButton mw-fallbackSearchButton" type="submit" name="fulltext" title="Search the pages for this text" id="mw-searchButton" value="Search"><input class="searchButton" type="submit" name="go" title="Go to a page with this exact name if it exists" id="searchButton" value="Go"></div></form></div></div><div class="visualClear"></div></div><div id="mw-header-hack" class="color-bar"><div class="color-middle-container"><div class="color-middle"></div></div><div class="color-left"></div><div class="color-right"></div></div><div id="mw-header-nav-hack"><div class="color-bar"><div class="color-middle-container"><div class="color-middle"></div></div><div class="color-left"></div><div class="color-right"></div></div></div><div id="menus-cover"></div><div id="mw-content-container" class="ts-container"><div id="mw-content-block" class="ts-inner"><div id="mw-content-wrapper"><div id="mw-content"><div id="content" class="mw-body" role="main"><div class="mw-indicators">
+</div>
+<h1 id="firstHeading" class="firstHeading mw-first-heading"><span class="mw-page-title-main">Ada User Guide</span></h1><div id="bodyContentOuter"><div id="siteSub">From HPC</div><div id="mw-page-header-links"><div role="navigation" class="mw-portlet tools-inline" id="p-namespaces" aria-labelledby="p-namespaces-label"><h3 id="p-namespaces-label" lang="en" dir="ltr">Namespaces</h3><div class="mw-portlet-body"><ul lang="en" dir="ltr"><li id="ca-nstab-main" class="selected mw-list-item"><a href="/wiki/index.php?title=Ada_User_Guide" title="View the content page [c]" accesskey="c"><span>Page</span></a></li><li id="ca-talk" class="new mw-list-item"><a href="/wiki/index.php?title=Talk:Ada_User_Guide&amp;action=edit&amp;redlink=1" rel="discussion" title="Discussion about the content page (page does not exist) [t]" accesskey="t"><span>Discussion</span></a></li></ul></div></div><div role="navigation" class="mw-portlet tools-inline" id="p-more" aria-labelledby="p-more-label"><h3 id="p-more-label" lang="en" dir="ltr">More</h3><div class="mw-portlet-body"><ul lang="en" dir="ltr"><li id="ca-more" class="dropdown-toggle mw-list-item"><span>More</span></li></ul></div></div><div role="navigation" class="mw-portlet tools-inline" id="p-views" aria-labelledby="p-views-label"><h3 id="p-views-label" lang="en" dir="ltr">Page actions</h3><div class="mw-portlet-body"><ul lang="en" dir="ltr"><li id="ca-view" class="selected mw-list-item"><a href="/wiki/index.php?title=Ada_User_Guide"><span>Read</span></a></li><li id="ca-viewsource" class="mw-list-item"><a href="/wiki/index.php?title=Ada_User_Guide&amp;action=edit" title="This page is protected.&#10;You can view its source [e]" accesskey="e"><span>View source</span></a></li><li id="ca-history" class="mw-list-item"><a href="/wiki/index.php?title=Ada_User_Guide&amp;action=history" title="Past revisions of this page [h]" accesskey="h"><span>History</span></a></li></ul></div></div></div><div class="visualClear"></div><div id="bodyContent"><div id="contentSub"><div id="mw-content-subtitle"></div></div><div id="mw-content-text" class="mw-body-content"><div class="mw-content-ltr mw-parser-output" lang="en" dir="ltr"><div id="toc" class="toc" role="navigation" aria-labelledby="mw-toc-heading"><input type="checkbox" role="button" id="toctogglecheckbox" class="toctogglecheckbox" style="display:none" /><div class="toctitle" lang="en" dir="ltr"><h2 id="mw-toc-heading">Contents</h2><span class="toctogglespan"><label class="toctogglelabel" for="toctogglecheckbox"></label></span></div>
+<ul>
+<li class="toclevel-1 tocsection-1"><a href="#Overview"><span class="tocnumber">1</span> <span class="toctext">Overview</span></a></li>
+<li class="toclevel-1 tocsection-2"><a href="#Applying_for_an_account"><span class="tocnumber">2</span> <span class="toctext">Applying for an account</span></a></li>
+<li class="toclevel-1 tocsection-3"><a href="#Accessing_Ada"><span class="tocnumber">3</span> <span class="toctext">Accessing Ada</span></a>
+<ul>
+<li class="toclevel-2 tocsection-4"><a href="#Logging_in"><span class="tocnumber">3.1</span> <span class="toctext">Logging in</span></a></li>
+<li class="toclevel-2 tocsection-5"><a href="#Changing_initial_password"><span class="tocnumber">3.2</span> <span class="toctext">Changing initial password</span></a></li>
+<li class="toclevel-2 tocsection-6"><a href="#Moving_files_to_and_from_Ada"><span class="tocnumber">3.3</span> <span class="toctext">Moving files to and from Ada</span></a></li>
+</ul>
+</li>
+<li class="toclevel-1 tocsection-7"><a href="#Partitions,_Account,_and_QoS"><span class="tocnumber">4</span> <span class="toctext">Partitions, Account, and QoS</span></a>
+<ul>
+<li class="toclevel-2 tocsection-8"><a href="#cvit_account"><span class="tocnumber">4.1</span> <span class="toctext">cvit account</span></a></li>
+<li class="toclevel-2 tocsection-9"><a href="#sub_account"><span class="tocnumber">4.2</span> <span class="toctext">sub account</span></a></li>
+</ul>
+</li>
+<li class="toclevel-1 tocsection-10"><a href="#File_Systems"><span class="tocnumber">5</span> <span class="toctext">File Systems</span></a></li>
+<li class="toclevel-1 tocsection-11"><a href="#Policies"><span class="tocnumber">6</span> <span class="toctext">Policies</span></a>
+<ul>
+<li class="toclevel-2 tocsection-12"><a href="#Account_Policies"><span class="tocnumber">6.1</span> <span class="toctext">Account Policies</span></a></li>
+<li class="toclevel-2 tocsection-13"><a href="#Software_Policies"><span class="tocnumber">6.2</span> <span class="toctext">Software Policies</span></a></li>
+<li class="toclevel-2 tocsection-14"><a href="#Security_Policies"><span class="tocnumber">6.3</span> <span class="toctext">Security Policies</span></a></li>
+<li class="toclevel-2 tocsection-15"><a href="#Backup_Policies"><span class="tocnumber">6.4</span> <span class="toctext">Backup Policies</span></a></li>
+</ul>
+</li>
+<li class="toclevel-1 tocsection-16"><a href="#Environment_Modules"><span class="tocnumber">7</span> <span class="toctext">Environment Modules</span></a>
+<ul>
+<li class="toclevel-2 tocsection-17"><a href="#List_of_Available_Modules"><span class="tocnumber">7.1</span> <span class="toctext">List of Available Modules</span></a></li>
+</ul>
+</li>
+<li class="toclevel-1 tocsection-18"><a href="#SLURM_Commands"><span class="tocnumber">8</span> <span class="toctext">SLURM Commands</span></a></li>
+<li class="toclevel-1 tocsection-19"><a href="#SLURM_Job_Pending_Reasons"><span class="tocnumber">9</span> <span class="toctext">SLURM Job Pending Reasons</span></a></li>
+<li class="toclevel-1 tocsection-20"><a href="#Job_Submission"><span class="tocnumber">10</span> <span class="toctext">Job Submission</span></a>
+<ul>
+<li class="toclevel-2 tocsection-21"><a href="#Interactive_Jobs"><span class="tocnumber">10.1</span> <span class="toctext">Interactive Jobs</span></a></li>
+<li class="toclevel-2 tocsection-22"><a href="#Batch_Jobs"><span class="tocnumber">10.2</span> <span class="toctext">Batch Jobs</span></a></li>
+</ul>
+</li>
+<li class="toclevel-1 tocsection-23"><a href="#Storage_and_usage_tutorial_video"><span class="tocnumber">11</span> <span class="toctext">Storage and usage tutorial video</span></a></li>
+<li class="toclevel-1 tocsection-24"><a href="#Running_JupyterLab"><span class="tocnumber">12</span> <span class="toctext">Running JupyterLab</span></a>
+<ul>
+<li class="toclevel-2 tocsection-25"><a href="#1._Start_an_Interactive_Session"><span class="tocnumber">12.1</span> <span class="toctext">1. Start an Interactive Session</span></a></li>
+<li class="toclevel-2 tocsection-26"><a href="#2._Install_JupyterLab_and_Notebook"><span class="tocnumber">12.2</span> <span class="toctext">2. Install JupyterLab and Notebook</span></a></li>
+<li class="toclevel-2 tocsection-27"><a href="#3._Set_a_Jupyter_Password"><span class="tocnumber">12.3</span> <span class="toctext">3. Set a Jupyter Password</span></a></li>
+<li class="toclevel-2 tocsection-28"><a href="#4._Start_Jupyter_Notebook_on_the_Allocated_Compute_Node"><span class="tocnumber">12.4</span> <span class="toctext">4. Start Jupyter Notebook on the Allocated Compute Node</span></a></li>
+<li class="toclevel-2 tocsection-29"><a href="#5._Create_an_SSH_Tunnel_from_Your_Local_Machine"><span class="tocnumber">12.5</span> <span class="toctext">5. Create an SSH Tunnel from Your Local Machine</span></a></li>
+<li class="toclevel-2 tocsection-30"><a href="#6._Access_JupyterLab_in_Your_Browser"><span class="tocnumber">12.6</span> <span class="toctext">6. Access JupyterLab in Your Browser</span></a>
+<ul>
+<li class="toclevel-3 tocsection-31"><a href="#Note"><span class="tocnumber">12.6.1</span> <span class="toctext">Note</span></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toclevel-1 tocsection-32"><a href="#Windows_Users"><span class="tocnumber">13</span> <span class="toctext">Windows Users</span></a>
+<ul>
+<li class="toclevel-2 tocsection-33"><a href="#Connecting_to_Ada"><span class="tocnumber">13.1</span> <span class="toctext">Connecting to Ada</span></a></li>
+<li class="toclevel-2 tocsection-34"><a href="#Mounting_Ada_to_Local"><span class="tocnumber">13.2</span> <span class="toctext">Mounting Ada to Local</span></a></li>
+</ul>
+</li>
+<li class="toclevel-1 tocsection-35"><a href="#Accessing_compute_nodes_via_VSCode"><span class="tocnumber">14</span> <span class="toctext">Accessing compute nodes via VSCode</span></a></li>
+</ul>
+</div>
+
+<h2><span class="mw-headline" id="Overview">Overview</span></h2>
+<p>Ada cluster consists of ninety two Boston SYS-7048GR-TR nodes equipped with dual Intel Xeon E5-2640 v4 processors, providing 40 virtual cores per node, 128 GB of 2400MT/s DDR4 ECC RAM and four Nvidia GeForce GTX 1080 Ti GPUs, providing  14336 CUDA cores, and 44 GB of GDDR5X VRAM or four Nvidia GeForce RTX 2080 Ti GPUs providing 17408 cores, and 44 GB of GDDR6 VRAM.  The nodes are connected to each other via a Gigabit Ethernet network. All compute nodes have a 1.8 TB local scratch and a 960 GB local SSD scratch. The compute nodes are running Ubuntu 18.04 LTS. <a rel="nofollow" class="external text" href="https://slurm.schedmd.com/">SLURM</a> software is used as a job scheduler and resource manager. The aggregate theoretical peak performance of Ada is 70.66 TFLOPS (CPU) + 4588 TFLOPS (FP32 GPU).
+</p>
+<h2><span class="mw-headline" id="Applying_for_an_account">Applying for an account</span></h2>
+<p>An Ada account is available to IIIT faculty, research staff, and research students. To apply for a new account, please send an email to <a rel="nofollow" class="external text" href="mailto:hpc.admin@iiit.ac.in">hpc.admin@iiit.ac.in</a> with the following information. 
+</p>
+<ul><li>Name</li>
+<li>Roll Number / Employee ID</li>
+<li>Research Center</li>
+<li>Faculty Advisor</li>
+<li>Preferred Login ID</li></ul>
+<p>For a CVIT associated account, fill out <a rel="nofollow" class="external text" href="https://forms.gle/L4XdmyHvYQidQged9">this form</a>. The form requires that you sign-in using your Gmail account. If you do not get a response about your account creation within 72 hrs of filling this form, please mail to <a rel="nofollow" class="external text" href="mailto:cvit-sudo@googlegroups.com">cvit-sudo@googlegroups.com</a> with the same details. If you are a CVIT student, please watch this <a rel="nofollow" class="external text" href="https://www.youtube.com/watch?v=U3_pPJgs2Fg">tutorial video</a>. Strict actions would be taken if requested for a CVIT account without being affiliated to any of the CVIT faculty.
+</p>
+<h2><span class="mw-headline" id="Accessing_Ada">Accessing Ada</span></h2>
+<h3><span class="mw-headline" id="Logging_in">Logging in</span></h3>
+<p>You can log in to Ada by SSH from IIIT LAN. For accessing Ada from off-campus, <a rel="nofollow" class="external text" href="https://vpn.iiit.ac.in/">IIIT VPN</a> must be used.
+</p>
+<div class="mw-highlight mw-highlight-lang-bash mw-content-ltr" dir="ltr"><pre><span></span>$<span class="w"> </span>ssh<span class="w"> </span>-X<span class="w"> </span>user_name@ada.iiit.ac.in
+</pre></div>
+<h3><span class="mw-headline" id="Changing_initial_password">Changing initial password</span></h3>
+<p>When you are prompted to enter the password, enter the initial password. In  <b>(current) UNIX password:</b> , enter the initial password. In <b>New password:</b> and <b>Retype new password:</b>, enter a new password of  your choice.
+</p><p><span class="mw-default-size" typeof="mw:File"><a href="/wiki/index.php?title=File:Password2.png" class="mw-file-description"><img src="/wiki/images/a/a8/Password2.png" decoding="async" width="700" height="223" class="mw-file-element" /></a></span>
+</p>
+<h3><span class="mw-headline" id="Moving_files_to_and_from_Ada">Moving files to and from Ada</span></h3>
+<p>To move a directory from local machine to Ada:
+</p>
+<div class="mw-highlight mw-highlight-lang-bash mw-content-ltr" dir="ltr"><pre><span></span>$<span class="w"> </span>scp<span class="w"> </span>-r<span class="w"> </span>local_directory<span class="w"> </span>user_name@ada.iiit.ac.in:
+<span class="o">(</span>or<span class="o">)</span>
+$<span class="w"> </span>rsync<span class="w"> </span>-avz<span class="w"> </span>local_directory<span class="w"> </span>user_name@ada.iiit.ac.in:
+</pre></div>
+<p>To move a directory from Ada to local machine:
+</p>
+<div class="mw-highlight mw-highlight-lang-bash mw-content-ltr" dir="ltr"><pre><span></span>$<span class="w"> </span>scp<span class="w"> </span>-r<span class="w"> </span>user_name@ada.iiit.ac.in:remote_directory<span class="w"> </span>.
+<span class="o">(</span>or<span class="o">)</span>
+$<span class="w"> </span>rsync<span class="w"> </span>-avz<span class="w"> </span>user_name@ada.iiit.ac.in:remote_directory<span class="w"> </span>.
+</pre></div>
+<p>Both <b>scp</b> and <b>rsync</b> transfers files locally or over network. If the transfer is interrupted, <b>rsync</b> has the ability to continue from where it left off when invoked again.
+</p>
+<h2><span id="Partitions.2C_Account.2C_and_QoS"></span><span class="mw-headline" id="Partitions,_Account,_and_QoS">Partitions, Account, and QoS</span></h2>
+<p>A partition can be considered as a collection of nodes. There are two partitions in the cluster. The <b>short</b> partition has two nodes and is for compiling/debugging codes. The <b>long</b> partition is for serial/parallel jobs that need to run for longer than 6 hours. Node 01-40 contains 4 GeForce GTX 1080 Ti GPUs each while nodes 43-92 contain 4 GeForce RTX 2080 Ti GPUs each. 
+</p>
+<table class="wikitable">
+
+<tbody><tr>
+<td>Partition
+</td>
+<td>Nodes
+</td>
+<td>DefMemPerCPU
+</td>
+<td>MaxMemPerCPU
+</td>
+<td>Gres
+</td>
+<td>Maxtime
+</td>
+<td>Priority
+</td></tr>
+<tr>
+<td>short
+</td>
+<td>gnodes[01-02]
+</td>
+<td>1024 MB
+</td>
+<td>3000 MB
+</td>
+<td>gpu:4
+</td>
+<td>6:00:00
+</td>
+<td>100
+</td></tr>
+<tr>
+<td>long
+</td>
+<td>gnodes[03-92]
+</td>
+<td>1024 MB
+</td>
+<td>3000 MB
+</td>
+<td>gpu:4
+</td>
+<td>Infinite
+</td>
+<td>100
+</td></tr>
+<tr>
+<td>ihub
+</td>
+<td>gnode[92-112]
+</td>
+<td>1024
+</td>
+<td>5000 MB
+</td>
+<td>gpu:4
+</td>
+<td>Infinite
+</td>
+<td>100
+</td></tr></tbody></table>
+<p>A SLURM account is like a bank account, and all users belong to at least one account. The allocated resources to a job are charged to the job's specified account. All users have access to <b>research</b> account. The accounts <b>cvit</b>, <b>nlp</b>, <b>ccnsb</b>, <b>mll</b>, <b>hai</b>, <b>irel</b>, <b>dma</b>, <b>adsac</b>, <b>rrc</b>, <b>plafnet</b>, and <b>biosona</b> are accessible only to users in projects/centres that have contributed hardware to the cluster.
+</p>
+<table class="wikitable">
+
+<tbody><tr>
+<td>Account
+</td>
+<td>Access
+</td>
+<td>GrpCPUs
+</td>
+<td>GrpTRES=gres/gpu
+</td>
+<td>GrpJobs
+</td>
+<td>GrpSubmitJobs
+</td>
+<td>Allowed QoS
+</td></tr>
+<tr>
+<td>research
+</td>
+<td>ALL
+</td>
+<td>1640
+</td>
+<td>164
+</td>
+<td>820
+</td>
+<td>1640
+</td>
+<td>medium
+</td></tr>
+<tr>
+<td>cvit
+</td>
+<td>CVIT
+</td>
+<td>1080
+</td>
+<td>108
+</td>
+<td>540
+</td>
+<td>1080
+</td>
+<td>normal
+</td></tr>
+<tr>
+<td>mll
+</td>
+<td>MLL
+</td>
+<td>40
+</td>
+<td>4
+</td>
+<td>20
+</td>
+<td>40
+</td>
+<td>normal
+</td></tr>
+<tr>
+<td>nlp
+</td>
+<td>NLP
+</td>
+<td>120
+</td>
+<td>12
+</td>
+<td>60
+</td>
+<td>120
+</td>
+<td>normal
+</td></tr>
+<tr>
+<td>ccnsb
+</td>
+<td>CCNSB
+</td>
+<td>80
+</td>
+<td>8
+</td>
+<td>40
+</td>
+<td>80
+</td>
+<td>normal
+</td></tr>
+<tr>
+<td>cesp
+</td>
+<td>CESP
+</td>
+<td>40
+</td>
+<td>4
+</td>
+<td>20
+</td>
+<td>40
+</td>
+<td>normal
+</td></tr>
+<tr>
+<td>hai
+</td>
+<td>HAI
+</td>
+<td>40
+</td>
+<td>4
+</td>
+<td>20
+</td>
+<td>40
+</td>
+<td>normal
+</td></tr>
+<tr>
+<td>irel
+</td>
+<td>IREL
+</td>
+<td>120
+</td>
+<td>12
+</td>
+<td>60
+</td>
+<td>120
+</td>
+<td>normal
+</td></tr>
+<tr>
+<td>dma
+</td>
+<td>DMA
+</td>
+<td>40
+</td>
+<td>4
+</td>
+<td>20
+</td>
+<td>40
+</td>
+<td>normal
+</td></tr>
+<tr>
+<td>adsac
+</td>
+<td>ADSAC
+</td>
+<td>40
+</td>
+<td>4
+</td>
+<td>20
+</td>
+<td>40
+</td>
+<td>normal
+</td></tr>
+<tr>
+<td>rrc
+</td>
+<td>RRC
+</td>
+<td>40
+</td>
+<td>4
+</td>
+<td>20
+</td>
+<td>40
+</td>
+<td>normal
+</td></tr>
+<tr>
+<td>plafnet
+</td>
+<td>PLAfNET
+</td>
+<td>40
+</td>
+<td>4
+</td>
+<td>20
+</td>
+<td>40
+</td>
+<td>normal
+</td></tr>
+<tr>
+<td>biosona
+</td>
+<td>BioSonA
+</td>
+<td>240
+</td>
+<td>24
+</td>
+<td>120
+</td>
+<td>240
+</td>
+<td>normal
+</td></tr>
+</tbody></table>
+<p>It is recommended to specify a Quality of Service (QOS) for each job submitted to SLURM. The default QOS for research account is <b>medium</b> and it is <b>normal</b> for cvit, mll, nlp, cesp, ccnsb, hai, irel, dma, adsac, rrc, plafnet and biosona accounts.
+</p>
+<table class="wikitable">
+
+<tbody><tr>
+<td>QoS
+</td>
+<td>MaxCPUsPerUser
+</td>
+<td>MaxTRESPerUser
+</td>
+<td>MaxJobsPerUser
+</td>
+<td>MaxSubmitJobsPerUser
+</td>
+<td>MaxWall
+</td>
+<td>MaxTresPerJob
+</td>
+<td>Priority
+</td></tr>
+<tr>
+<td>low
+</td>
+<td>10
+</td>
+<td>gres/gpu=1
+</td>
+<td>1
+</td>
+<td>4
+</td>
+<td>4-00:00:00
+</td>
+<td>gres/gpu=1
+</td>
+<td>0
+</td></tr>
+<tr>
+<td>medium
+</td>
+<td>40
+</td>
+<td>gres/gpu=4
+</td>
+<td>4
+</td>
+<td>8
+</td>
+<td>4-00:00:00
+</td>
+<td>gres/gpu=4
+</td>
+<td>10
+</td></tr>
+<tr>
+<td>normal
+</td>
+<td>Account limits
+</td>
+<td>Account limits
+</td>
+<td>Account limits
+</td>
+<td>Account limits
+</td>
+<td>Infinite
+</td>
+<td>gres/gpu=4
+</td>
+<td>0
+</td></tr>
+</tbody></table>
+<p>The following command can be used to list the allowed Accounts and QoSes.
+</p>
+<div class="mw-highlight mw-highlight-lang-bash mw-content-ltr" dir="ltr"><pre><span></span>$<span class="w"> </span>sacctmgr<span class="w"> </span>show<span class="w"> </span>assoc<span class="w"> </span><span class="nv">user</span><span class="o">=</span><span class="nv">$USER</span><span class="w"> </span><span class="nv">format</span><span class="o">=</span>Account,QOS,DefaultQOS
+</pre></div>
+<h3><span class="mw-headline" id="cvit_account">cvit account</span></h3>
+<p>To submit jobs to the CVIT account, users should specify SLURM job directive <b>-A $USER</b>. 
+</p><p>
+e.g. </p><div class="mw-highlight mw-highlight-lang-bash mw-content-ltr" dir="ltr"><pre><span></span>$<span class="w"> </span>sinteractive<span class="w"> </span>-c<span class="w"> </span><span class="m">2</span><span class="w"> </span>-g<span class="w"> </span><span class="m">1</span><span class="w"> </span>-A<span class="w"> </span><span class="nv">$USER</span>
+</pre></div>
+<p>The following command will show the associations for an account. 
+</p>
+<div class="mw-highlight mw-highlight-lang-bash mw-content-ltr" dir="ltr"><pre><span></span>$<span class="w"> </span>sacctmgr<span class="w"> </span>show<span class="w"> </span>assoc<span class="w"> </span><span class="nv">account</span><span class="o">=</span><span class="nv">$USER</span>
+</pre></div>
+<p>sinteractive is non-standard and restrictive in terms of options and documentation. We recommend <b>sbatch</b> and <b>srun</b> for the same <a rel="nofollow" class="external autonumber" href="https://slurm.schedmd.com/sbatch.html">[1]</a> . The following is an example of <b>srun</b> command where we are requesting 1 GPU, 10 CPUs with 2GB memory per CPU (20GB in total) with the <b>cvit</b> account in the long partition. Please maintain a 1:10 ratio for the number of gpu&#160;: number of cpu. The CVIT admins may kill jobs in case this is not followed without warning.  
+</p>
+<div class="mw-highlight mw-highlight-lang-bash mw-content-ltr" dir="ltr"><pre><span></span>$<span class="w"> </span>srun<span class="w"> </span>--pty<span class="w"> </span>--partition<span class="o">=</span>long<span class="w"> </span>-A<span class="w"> </span><span class="nv">$USER</span><span class="w"> </span>--gres<span class="o">=</span>gpu:1<span class="w"> </span>--mem-per-cpu<span class="o">=</span>2G<span class="w"> </span>-c<span class="w"> </span><span class="m">10</span><span class="w"> </span>bash<span class="w"> </span>-l
+</pre></div>
+<p>In case, you want a specific node please use the <b>--nodelist gnodeXX</b> parameter. However, please note that if the requested node is unavailable due to some reason (other users running jobs in the same node, node is under maintenance etc.) then your job will go into the <b>pending</b> state.  
+</p><p>Sometimes we reserve nodes and give reservation names for dedicated access (in very special cases like conference deadlines and when users need to handle huge amounts of data). Use a reservation argument to gain access. For example we had used a reservation with reservation-name = <b>cvit-trial</b>
+</p>
+<div class="mw-highlight mw-highlight-lang-bash mw-content-ltr" dir="ltr"><pre><span></span>$<span class="w"> </span>srun<span class="w"> </span>--reservation<span class="w"> </span>&lt;reservation-name&gt;<span class="w"> </span>...
+<span class="k">for</span><span class="w"> </span>e.g.<span class="w"> </span>
+$<span class="w"> </span>srun<span class="w"> </span>--reservation<span class="w"> </span>cvit-trial<span class="w"> </span>--pty<span class="w"> </span>--partition<span class="o">=</span>long<span class="w"> </span>-A<span class="w"> </span><span class="nv">$USER</span><span class="w"> </span>--gres<span class="o">=</span>gpu:2<span class="w"> </span>--mem-per-cpu<span class="o">=</span>2G<span class="w"> </span>-c<span class="w"> </span><span class="m">10</span><span class="w"> </span>bash<span class="w"> </span>-l
+</pre></div>
+<p><b>srun</b> jobs (also called bash jobs) has a max time limit of 6 hrs. <b>srun</b> command will allocate a terminal to the user and allow interactive access. This interactive access is meant to be utilized for the general coding and debugging stage. For jobs requiring more than 6 hrs of runtime, the <b>sbatch</b> command has to be used. An example of this is given in - 
+</p><p>Sample script: batch_script1.sh   
+</p>
+<div class="mw-highlight mw-highlight-lang-bash mw-content-ltr" dir="ltr"><pre><span></span><span class="ch">#!/bin/bash</span>
+<span class="c1">#SBATCH -A research/username (if you want to use the cvit account put username)</span>
+<span class="c1">#SBATCH -n 10</span>
+<span class="c1">#SBATCH --gres=gpu:1</span>
+<span class="c1">#SBATCH --mem-per-cpu=2G</span>
+<span class="c1">#SBATCH --time=4-00:00:00</span>
+<span class="c1">#SBATCH --output=op_file.txt</span>
+
+module<span class="w"> </span>load<span class="w"> </span>u18/cuda/10.1
+module<span class="w"> </span>load<span class="w"> </span>u18/cudnn/7-cuda-10.1
+
+python<span class="w"> </span>.....
+</pre></div>
+<p>We run this script by,
+</p>
+<div class="mw-highlight mw-content-ltr" dir="ltr"><pre>$ sbatch batch_script1.sh</pre></div>
+<p>The output from the python file (anything that is present in the stdout buffer) will be stored in the op_file.txt. Please use the argument <b>flush=True</b> in the print statements in your python code to flush the buffer(otherwise it can lead to irregular updates in the file) regularly. If you want to continually check the updates to the file, please use the following command - 
+</p>
+<div class="mw-highlight mw-content-ltr" dir="ltr"><pre>$ tail -f op_file.txt</pre></div>
+<p>CVIT admins control GPUMinutes and the highest number of GPUs allocated to a user. By default on account creation, 1 GPU and 600 GPUMinutes is allowed to a user. Please mail to <a rel="nofollow" class="external text" href="mailto:cvit-sudo@googlegroups.com">cvit-sudo@googlegroups.com</a> for changing these limits as and when required.
+</p>
+<h3><span class="mw-headline" id="sub_account">sub account</span></h3>
+<p>A new SLURM account has been created on Ada to utilize the idle 
+nodes/cores/GPUs. The details are as follows: 
+</p>
+<div class="mw-highlight mw-content-ltr" dir="ltr"><pre>SLURM account: sub  (#SBATCH -A sub)
+QOS:     sub        (#SBATCH --qos=sub)
+Wall time: 6 hours  (#SBATCH --time=6:00:00)
+MaxCPUs: 40
+Max GPUs: 4</pre></div>
+<p>The jobs submitted using this account will have low priority and will 
+run only when there are no high priority (QOS: normal,medium) pending 
+jobs.
+t
+</p>
+<h2><span class="mw-headline" id="File_Systems">File Systems</span></h2>
+<p>The cluster provides four types of file storage to users. They are referred here as /home, /share1, /scratch and /ssd_scratch. For CVIT users, there is /share3 for long term storage.
+</p><p>The /home located at /home/$USER is an NFS storage and has a disk quota of 25 GB. This space can be used to store your source code and to build your executables. The data store on /home is backed up every day. The /share1 is RAID6 storage available on the master node and has a quota of 100 GB (CVIT users have a group quota of 6 TB). The 6 TB space for CVIT users is used to store public datasets in /share1/dataset directory. If you are planning to use a public dataset, please search it in the said location; you may find it is already present there. Further, you can contact the CVIT admins to move a public dataset to this directory if it is not present already. Each CVIT user also has access to a separate storage space in /share3. This space can be used for long-term storage and for transferring large data files to and from compute node /scratch. By default, each user gets 50 GB of storage space. This can be increased to 200 GB depending on the circumstances. Please mail to <a rel="nofollow" class="external text" href="mailto:cvit-sudo@googlegroups.com">cvit-sudo@googlegroups.com</a> for increasing /share3 space. The /scratch is for storing temporary files created during job run time. The /ssd_scratch is for storing temporary files that required high-speed disk I/O access. The files older than 10 days are purged from /scratch and /ssd_scratch. 
+</p>
+<table class="wikitable">
+
+<tbody><tr>
+<td>Space
+</td>
+<td>Purpose
+</td>
+<td>Visibility
+</td>
+<td>Backup
+</td>
+<td>Quota
+</td>
+<td>Total Size
+</td>
+<td>File Deletion Policy
+</td></tr>
+<tr>
+<td>/home
+</td>
+<td>Sofware installation space, storing codes and small files
+</td>
+<td>Master and compute nodes
+</td>
+<td>Yes
+</td>
+<td>25 GB
+</td>
+<td>9.8 TB
+</td>
+<td>None
+</td></tr>
+<tr>
+<td>/share1
+</td>
+<td>Long-term storage
+</td>
+<td>Master node only
+</td>
+<td>No
+</td>
+<td>100 GB / 6 TB
+</td>
+<td>20 TB
+</td>
+<td>None
+</td></tr>
+<tr>
+<td>/share2
+</td>
+<td>Long-term storage
+</td>
+<td>Master node only
+</td>
+<td>No
+</td>
+<td>
+</td>
+<td>13 TB
+</td>
+<td>None
+</td></tr>
+<tr>
+<td>/share3
+</td>
+<td>Long-term storage for only CVIT users
+</td>
+<td>Master node only
+</td>
+<td>No
+</td>
+<td>50 GB/ 100 GB / 150 GB /200 GB
+</td>
+<td>22 TB
+</td>
+<td>None
+</td></tr>
+
+<tr>
+<td>/scratch
+</td>
+<td>Temporary storage for large files
+</td>
+<td>Local disk attached to each compute node
+</td>
+<td>No
+</td>
+<td>None
+</td>
+<td>2.0 TB
+</td>
+<td>7 days<sup>#</sup>
+</td></tr>
+<tr>
+<td>/ssd_scratch
+</td>
+<td>Temporary storage for jobs that require fast I/O
+</td>
+<td>Local disk attached to each compute node
+</td>
+<td>No
+</td>
+<td>None
+</td>
+<td>960 GB
+</td>
+<td>7 days<sup>#</sup>
+</td></tr></tbody></table>
+<p><sup>#</sup> File deletion based on creation time (ctime).
+</p>
+<h2><span class="mw-headline" id="Policies">Policies</span></h2>
+<h3><span class="mw-headline" id="Account_Policies">Account Policies</span></h3>
+<p>i) Access to HPC account is open to faculty members, post-doctoral researchers
+and research students (MS and PhD). Under certain circumstances, a non-research student may be granted access to an account on the HPC system with the endorsement of their faculty advisor.
+</p><p>ii) To apply for an account, an email with the following details should be sent
+to hpc.admin@iiit.ac.in
+</p><p>Name,  Roll number / Employee ID, Research Center, Faculty Advisor and Preferred
+login name.
+</p><p>iii) Users are required to change their password every six months. They will receive alerts upon login starting one month before the password expiration date.
+</p><p>iv) Accounts will be removed / deleted when a student has been issued no-dues
+certificate by IT office and when an employee leaves the institute. Account that
+are not accesseed for six months will be locked.
+</p><p>v) Sharing accounts is strictly forbidden and will result in the account being locked for a period of three days to a week.
+</p><p>vi) The account of a student will be locked upon the request of their faculty advisor, while the account of an employee will be locked upon the request of a competent authority.
+</p>
+<h3><span class="mw-headline" id="Software_Policies">Software Policies</span></h3>
+<p>i) Custom Python and R environments must be installed in users' home directories.
+</p><p>ii)  The majority of commonly used software has been installed system-wide and is
+available as modules. If there is a need for a specific software to be installed, a request should be sent to hpc.admin@iiit.ac.in .
+</p><p>iii) Installation of any unlicensed proprietary software on the HPC nodes is strictly prohibited.
+</p>
+<h3><span class="mw-headline" id="Security_Policies">Security Policies</span></h3>
+<p>i) Sharing of accounts, even among users working on the same project, is strictly prohibited.
+</p><p>ii) Users are advised to set up passwordless SSH access to their accounts for convenience and ease of use.
+</p><p>iii) Users should not leave their terminal unattended while logged in.
+</p><p>iv) Any suspicious activities and security problems should be reported to hpc.admin@iiit.ac.in immediately.
+</p>
+<h3><span class="mw-headline" id="Backup_Policies">Backup Policies</span></h3>
+<p>i) Users' home directories are backed up once every 24 hours, and teh backups
+are retained for up to three months.  Users are strongly advised to perform frequent backups of important data to alternate locations.
+</p><p>ii)  The backups are accessible as read-only on the login node.
+</p>
+<h2><span class="mw-headline" id="Environment_Modules">Environment Modules</span></h2>
+<p>The environment module allows users to set shell environmental variables needed for the software. 
+</p><p>To view the list of current loaded modules:
+</p>
+<div class="mw-highlight mw-highlight-lang-bash mw-content-ltr" dir="ltr"><pre><span></span><span class="o">[</span>parithi@ada<span class="w"> </span>~<span class="o">]</span>$<span class="w"> </span>module<span class="w"> </span>list
+
+Currently<span class="w"> </span>Loaded<span class="w"> </span>Modulefiles:
+<span class="w">  </span><span class="m">1</span><span class="o">)</span><span class="w"> </span>u18/namd/2.14<span class="w">       </span><span class="m">2</span><span class="o">)</span><span class="w"> </span>u18/openmpi/4.1.2
+</pre></div>
+<p>To list the installed modules:
+</p>
+<div class="mw-highlight mw-highlight-lang-bash mw-content-ltr" dir="ltr"><pre><span></span><span class="o">[</span>parithi@ada<span class="w"> </span>~<span class="o">]</span>$<span class="w"> </span>module<span class="w"> </span>avail
+
+--------------------------------------------------------<span class="w"> </span>/opt/Modules/versions<span class="w"> </span>---------------------------------------------------------
+<span class="m">3</span>.2.10
+
+---------------------------------------------------<span class="w"> </span>/opt/Modules/3.2.10/modulefiles<span class="w"> </span>----------------------------------------------------
+u18/amber/18<span class="w">                                       </span>u18/gromacs/2021.4-plumed2
+u18/amber/18-plumed<span class="w">                                </span>u18/gromacs/2021.4-plumed2-avx512
+u18/ambertools/20<span class="w">                                  </span>u18/gromacs/2021.5-plumed-avx512-ambertools-mmPBSA
+u18/ambertools/21<span class="w">                                  </span>u18/gromacs/2022
+u18/aria2/1.35.0<span class="w">                                   </span>u18/gromacs/2022-avx512
+u18/cmake/3.23.3<span class="w">                                   </span>u18/leptonica/1.82.0
+u18/cuda/10.0<span class="w">                                      </span>u18/matlab/R2022a
+u18/cuda/10.2<span class="w">                                      </span>u18/namd/2.12
+u18/cuda/11.6<span class="w">                                      </span>u18/namd/2.14
+u18/cuda/8.0<span class="w">                                       </span>u18/namd/3.0_alpha10
+u18/cuda/9.0<span class="w">                                       </span>u18/openblas/0.3.17
+u18/cuda/9.2<span class="w">                                       </span>u18/openmpi/2.1.1-gcc5
+u18/cudnn/7.6.5-cuda-10.2<span class="w">                          </span>u18/openmpi/3.1.6
+u18/cudnn/7.6.5-cuda-9.2<span class="w">                           </span>u18/openmpi/4.0.1-cuda10
+u18/cudnn/7.6-cuda-10.0<span class="w">                            </span>u18/openmpi/4.0.7
+u18/cudnn/8.3.2-cuda-11.5<span class="w">                          </span>u18/openmpi/4.1.2
+u18/cudnn/8.3.3-cuda-10.2<span class="w">                          </span>u18/openmpi/4.1.2-cuda11
+u18/cudnn/8.4.0-cuda-11.6<span class="w">                          </span>u18/plumed2/2.6.1
+u18/ffmpeg/5.0.1<span class="w">                                   </span>u18/plumed2/2.8.0
+u18/freesurfer/7.2.0<span class="w">                               </span>u18/python/3.10.2
+u18/fsl/6.0.5.2<span class="w">                                    </span>u18/python/3.11.2
+u18/gcc/8.4.0<span class="w">                                      </span>u18/python/3.7.4
+u18/gcc/9.4.0<span class="w">                                      </span>u18/python/3.8.3
+u18/gflags/2.2.2<span class="w">                                   </span>u18/R/4.1.3
+u18/glog/0.5.0<span class="w">                                     </span>u18/singularity-ce/3.9.6
+u18/go/1.17.8<span class="w">                                      </span>u18/TensorRT/8.4.0.6
+u18/gromacs/2016.3<span class="w">                                 </span>u18/tesseract/5.2.0
+u18/gromacs/2016.3-plumed<span class="w">                          </span>u18/use.own
+u18/gromacs/2016.3-v2
+</pre></div>
+<p>To load a module:
+</p>
+<div class="mw-highlight mw-highlight-lang-bash mw-content-ltr" dir="ltr"><pre><span></span><span class="o">[</span>parithi@ada<span class="w"> </span>~<span class="o">]</span>$<span class="w"> </span>module<span class="w"> </span>load<span class="w"> </span>u18/openmpi/4.1.2
+</pre></div>
+<p>To remove/unload a module.
+</p>
+<div class="mw-highlight mw-highlight-lang-bash mw-content-ltr" dir="ltr"><pre><span></span><span class="o">[</span>parithi@ada<span class="w"> </span>~<span class="o">]</span>$<span class="w"> </span>module<span class="w"> </span>unload<span class="w"> </span>u18/openmpi/4.1.2
+</pre></div>
+<p>To display the changes made by a module to the user shell environment: 
+</p>
+<div class="mw-highlight mw-highlight-lang-bash mw-content-ltr" dir="ltr"><pre><span></span><span class="o">[</span>parithi@ada<span class="w"> </span>~<span class="o">]</span>$<span class="w"> </span>module<span class="w"> </span>disp<span class="w"> </span>u18/cuda/11.6<span class="w"> </span>
+-------------------------------------------------------------------
+/opt/Modules/3.2.10/modulefiles/u18/cuda/11.6:
+
+module-whatis<span class="w">	 </span>adds<span class="w"> </span>CUDA-11.6<span class="w"> </span>to<span class="w"> </span>your<span class="w"> </span>environment<span class="w"> </span>variable<span class="w"> </span>
+prepend-path<span class="w">	 </span>PATH<span class="w"> </span>/usr/local/cuda-11.6/bin<span class="w"> </span>
+prepend-path<span class="w">	 </span>LD_LIBRARY_PATH<span class="w"> </span>/usr/local/cuda-11.6/lib64<span class="w"> </span>
+-------------------------------------------------------------------
+</pre></div> 
+<h3><span class="mw-headline" id="List_of_Available_Modules">List of Available Modules</span></h3>
+<table class="wikitable">
+
+<tbody><tr>
+<td>Software
+</td>
+<td>Module
+</td>
+<td>Remarks
+</td></tr>
+<tr>
+<td>CUDA 9.0
+</td>
+<td>cuda/9.0
+</td>
+<td>
+</td></tr>
+<tr>
+<td>CUDA 9.1
+</td>
+<td>cuda/9.1
+</td>
+<td>
+</td></tr>
+<tr>
+<td>CUDA 10.0
+</td>
+<td>cuda/10.0
+</td>
+<td>
+</td></tr>
+<tr>
+<td>cuDNN 7
+</td>
+<td>cudnn/7-cuda-9.0
+</td>
+<td>CUDA 9.0
+</td></tr>
+<tr>
+<td>cuDNN 7.6.4
+</td>
+<td>cudnn/7.6.4-cuda-9.0
+</td>
+<td>CUDA 9.0
+</td></tr>
+<tr>
+<td>cuDNN 7.1
+</td>
+<td>cudnn/7.1-cuda-9.1
+</td>
+<td>CUDA 9.1
+</td></tr>
+<tr>
+<td>cuDNN 7
+</td>
+<td>cudnn/7-cuda-10.0
+</td>
+<td>CUDA 10.0
+</td></tr>
+<tr>
+<td>cuDNN 7.3
+</td>
+<td>cudnn/7.3-cuda-10.0
+</td>
+<td>CUDA 10.0
+</td></tr>
+<tr>
+<td>cuDNN 7.6
+</td>
+<td>cudnn/7.6-cuda-10.0
+</td>
+<td>CUDA 10.0
+</td></tr>
+<tr>
+<td>OpenBLAS
+</td>
+<td>openblas/0.3.6
+</td>
+<td>Haswell
+</td></tr>
+<tr>
+<td>OpenCV
+</td>
+<td>opencv/3.3.0
+</td>
+<td>Python 2.7
+</td></tr>
+<tr>
+<td><a href="/wiki/index.php?title=OpenMPI" title="OpenMPI">OpenMPI</a>
+</td>
+<td>openmpi/2.1.1
+</td>
+<td>
+</td></tr>
+<tr>
+<td>OpenMPI
+</td>
+<td>openmpi/3.1.0
+</td>
+<td>
+</td></tr>
+<tr>
+<td>OpenMPI
+</td>
+<td>openmpi/4.0.0
+</td>
+<td>
+</td></tr>
+<tr>
+<td>OpenMPI
+</td>
+<td>openmpi/4.0.1-cuda10
+</td>
+<td>CUDA aware
+</td></tr>
+<tr>
+<td><a href="/wiki/index.php?title=NAMD_2.13" title="NAMD 2.13">NAMD 2.13</a>
+</td>
+<td>namd/2.13
+</td>
+<td>
+</td></tr>
+<tr>
+<td>PLUMED 2.5.2
+</td>
+<td>plumed/2.5.2
+</td>
+<td>
+</td></tr>
+<tr>
+<td><a href="/wiki/index.php?title=GROMACS_2019" title="GROMACS 2019">GROMACS 2019</a>
+</td>
+<td>gromacs/2019
+</td>
+<td>
+</td></tr>
+<tr>
+<td>GROMACS 2019.3
+</td>
+<td>gromacs/2019.3-plumed
+</td>
+<td>plumed patched
+</td></tr>
+<tr>
+<td><a href="/wiki/index.php?title=AMBER_16" title="AMBER 16">AMBER 16</a>
+</td>
+<td>amber/16
+</td>
+<td>Compiled with GCC-4.7
+</td></tr>
+<tr>
+<td>gflags
+</td>
+<td>gflags/2.2.1
+</td>
+<td>
+</td></tr>
+<tr>
+<td>gflags
+</td>
+<td>gflags/2.2.2
+</td>
+<td>
+</td></tr>
+<tr>
+<td>glog
+</td>
+<td>glog/0.3.5
+</td>
+<td>
+</td></tr>
+<tr>
+<td>glog
+</td>
+<td>glog/0.4.0
+</td>
+<td>
+</td></tr>
+<tr>
+<td><a href="/wiki/index.php?title=MATLAB" title="MATLAB">MATLAB</a>
+</td>
+<td>matlab/R2019b
+</td>
+<td>
+</td></tr>
+<tr>
+<td>MPICH
+</td>
+<td>mpich-3.2
+</td>
+<td>Compiled with GCC-5
+</td></tr>
+<tr>
+<td>Intel TBB
+</td>
+<td>tbb/2018u1-release
+</td>
+<td>Compiled with macro TBB_USE_DEBUG=0
+</td></tr>
+<tr>
+<td>Intel TBB
+</td>
+<td>tbb/2018u1-debug
+</td>
+<td>Compiled with macro TBB_USE_DEBUG=1
+</td></tr>
+<tr>
+<td>FFMPEG
+</td>
+<td>ffmpeg/3.4
+</td>
+<td>cuda 9.0, cuvid, nvenc, nonfree, libnpp
+</td></tr>
+<tr>
+<td>FFMPEG
+</td>
+<td>ffmpeg/4.01
+</td>
+<td>
+</td></tr></tbody></table>
+<h2><span class="mw-headline" id="SLURM_Commands">SLURM Commands</span></h2>
+<table class="wikitable">
+
+<tbody><tr>
+<td>Description
+</td>
+<td>Command
+</td>
+<td>Example
+</td></tr>
+<tr>
+<td>Submit a batch job
+</td>
+<td><a rel="nofollow" class="external text" href="https://slurm.schedmd.com/sbatch.html">sbatch</a>
+</td>
+<td><pre>sbatch job_script.sh</pre>
+</td></tr>
+<tr>
+<td>Submit an interactive job
+</td>
+<td><a href="/wiki/index.php?title=Sinteractive" title="Sinteractive">sinteractive</a>
+</td>
+<td><pre>sinteractive -c 2 -g 1 </pre>
+</td></tr>
+<tr>
+<td>Cancel a job
+</td>
+<td><a rel="nofollow" class="external text" href="https://slurm.schedmd.com/scancel.html">scancel</a>
+</td>
+<td><pre>scancel job_id</pre>
+</td></tr>
+<tr>
+<td>List all current jobs for an user
+</td>
+<td><a rel="nofollow" class="external text" href="https://slurm.schedmd.com/squeue.html">squeue</a>
+</td>
+<td><pre>squeue -u username</pre>
+</td></tr>
+<tr>
+<td>Statistics of a completed job
+</td>
+<td><a rel="nofollow" class="external text" href="https://slurm.schedmd.com/sacct.html">sacct</a>
+</td>
+<td><pre>sacct -j job_id --format=user,jobid,jobname,partition,state,time,start,end,elapsed,alloctres,ncpus,nodelist</pre>
+</td></tr>
+<tr>
+<td>Pause a job
+</td>
+<td><a rel="nofollow" class="external text" href="https://slurm.schedmd.com/scontrol.html">scontrol</a>
+</td>
+<td><pre>scontrol hold job_id</pre>
+</td></tr>
+<tr>
+<td>Resume a job
+</td>
+<td><a rel="nofollow" class="external text" href="https://slurm.schedmd.com/scontrol.html">scontrol</a>
+</td>
+<td><pre>scontrol resume job_id</pre>
+</td></tr>
+<tr>
+<td>Modify attributes of a submitted job
+</td>
+<td><a rel="nofollow" class="external text" href="https://slurm.schedmd.com/scontrol.html">scontrol</a>
+</td>
+<td><pre>scontrol update jobid=job_id TimeLimit=4-00:00:00</pre>
+</td></tr>
+<tr>
+<td>Display a job's characteristics
+</td>
+<td><a rel="nofollow" class="external text" href="https://slurm.schedmd.com/scontrol.html">scontrol</a>
+</td>
+<td><pre>scontrol show job job_id</pre>
+</td></tr>
+<tr>
+<td>Display information about nodes and partitions
+</td>
+<td><a rel="nofollow" class="external text" href="https://slurm.schedmd.com/sinfo.html">sinfo</a>
+</td>
+<td><pre>sinfo -a</pre>
+</td></tr></tbody></table>
+<h2><span class="mw-headline" id="SLURM_Job_Pending_Reasons">SLURM Job Pending Reasons</span></h2>
+<pre>   * None -  The job is in the queue, but the SLURM controller has not determined whether it is pending due to priority, resource availability or another constraints. A pending reason will be assigned shortly. 
+</pre>
+<pre>   * Priority - The job is waiting for its turn based on priority.
+</pre>
+<pre>   * ReqNodeNotAvail - A required node is unavailable (e.g., down, drained, or in maintenance).
+</pre>
+<pre>   * Resources – There are not enough free resources (CPUs, memory, GPUs, etc.).
+</pre>
+<pre>   * QOSMaxJobsLimit - The job is exceeding the allowed number of jobs per user/account in QoS policy.
+</pre>
+<pre>   * QOSMaxCpuPerUserLimit - The job is exceeding the allowed number of CPU core per user in QoS policy.
+</pre>
+<pre>   * AssocGrpGRES - The jobs is execeeding the group resources (CPU, GPU etc)
+</pre>
+<pre>   * JobHeldAdmin - The job is on hold due to an admin action.
+</pre>
+<pre>   * JobHeldUser - The job is on hold due to a user action.
+</pre>
+<pre>   * PartitionDown - The assigned partition is unavailable.
+</pre>
+<pre>   * PartitionNodeLimit - The job requests more nodes than allowed in the partition.
+</pre>
+<pre>   * AssocGrpCpuLimit - The job's account or group has hit its CPU limit.
+</pre>
+<pre>   *AssocGrpMemLimit - The job's account or group has hit its memory limit.
+</pre>
+<h2><span class="mw-headline" id="Job_Submission">Job Submission</span></h2>
+<h4><span class="mw-headline" id="Interactive_Jobs">Interactive Jobs</span></h4>
+<p>Cores = 10, partition = long, Account = research, GPU = 1
+</p>
+<div class="mw-highlight mw-highlight-lang-bash mw-content-ltr" dir="ltr"><pre><span></span><span class="w"> </span>
+parithi@ada<span class="w"> </span>~<span class="o">]</span>$<span class="w"> </span>sinteractive<span class="w"> </span>-c<span class="w"> </span><span class="m">10</span><span class="w"> </span>-p<span class="w"> </span>long<span class="w"> </span>-A<span class="w"> </span>research<span class="w"> </span>-g<span class="w"> </span><span class="m">1</span><span class="w"> </span>
+salloc:<span class="w"> </span>Granted<span class="w"> </span>job<span class="w"> </span>allocation<span class="w"> </span><span class="m">141</span>
+parithi@gnode03:/home/parithi$
+</pre></div>
+<h4><span class="mw-headline" id="Batch_Jobs">Batch Jobs</span></h4>
+<p>Sample script: NAMD
+</p>
+<div class="mw-highlight mw-highlight-lang-bash mw-content-ltr" dir="ltr"><pre><span></span><span class="ch">#!/bin/bash</span>
+<span class="c1">#SBATCH -A research</span>
+<span class="c1">#SBATCH --qos=medium</span>
+<span class="c1">#SBATCH -n 20</span>
+<span class="c1">#SBATCH --gres=gpu:2</span>
+<span class="c1">#SBATCH --mem-per-cpu=2048</span>
+<span class="c1">#SBATCH --time=1-00:00:00</span>
+<span class="c1">#SBATCH --mail-type=END</span>
+
+module<span class="w"> </span>add<span class="w"> </span>namd/2.12
+
+scp<span class="w"> </span>ada:/share1/<span class="nv">$USER</span>/file.tar
+
+charmrun<span class="w"> </span>+p<span class="nv">$SLURM_NPROCS</span><span class="w"> </span>namd2<span class="w"> </span>+idlepoll<span class="w"> </span>+devices<span class="w"> </span><span class="nv">$CUDA_VISIBLE_DEVICES</span><span class="w"> </span>apoa1.namd<span class="w"> </span>&gt;<span class="w"> </span>output-gpu1.out
+</pre></div>
+<p>Sample script: Python  
+</p>
+<div class="mw-highlight mw-highlight-lang-bash mw-content-ltr" dir="ltr"><pre><span></span><span class="ch">#!/bin/bash</span>
+<span class="c1">#SBATCH -A $USER</span>
+<span class="c1">#SBATCH -n 40</span>
+<span class="c1">#SBATCH --gres=gpu:4</span>
+<span class="c1">#SBATCH --mem-per-cpu=2048</span>
+<span class="c1">#SBATCH --time=1-00:00:00</span>
+<span class="c1">#SBATCH --mail-type=END</span>
+
+module<span class="w"> </span>add<span class="w"> </span>cuda/8.0
+module<span class="w"> </span>add<span class="w"> </span>cudnn/7-cuda-8.0
+
+scp<span class="w"> </span>ada:/share1/<span class="nv">$USER</span>/file.tar<span class="w"> </span>/scratch
+
+tar<span class="w"> </span>xf<span class="w"> </span>/scratch/file.tar
+python<span class="w"> </span>.....
+
+scp<span class="w"> </span>/scratch/output<span class="w">  </span>ada:/share1/<span class="nv">$USER</span>
+</pre></div>
+<p>The variable CUDA_VISIBLE_DEVICES holds the ids of assigned GPUs.
+</p>
+<h2><span class="mw-headline" id="Storage_and_usage_tutorial_video">Storage and usage tutorial video</span></h2>
+<pre>  The below video can help you to get important details about the usage of Ada Machine.
+  <a rel="nofollow" class="external free" href="https://www.youtube.com/watch?v=U3_pPJgs2Fg">https://www.youtube.com/watch?v=U3_pPJgs2Fg</a>
+</pre>
+<h2><span class="mw-headline" id="Running_JupyterLab">Running JupyterLab</span></h2>
+<h3><span class="mw-headline" id="1._Start_an_Interactive_Session">1. Start an Interactive Session</span></h3>
+<p>After logging into the Ada master node, start an interactive session using the following command:
+</p>
+<pre>sinteractive -c 10 -g 1 -A research
+</pre>
+<p>This requests <b>10 CPU cores</b> and <b>1 GPU</b>.  
+Replace <code>research</code> with the Slurm account you have been granted access to.
+</p>
+<h3><span class="mw-headline" id="2._Install_JupyterLab_and_Notebook">2. Install JupyterLab and Notebook</span></h3>
+<p>Install the required packages:
+</p>
+<pre>pip install jupyterlab
+pip install notebook
+</pre>
+<h3><span class="mw-headline" id="3._Set_a_Jupyter_Password">3. Set a Jupyter Password</span></h3>
+<p>Set a password for Jupyter:
+</p>
+<pre>jupyter lab password
+</pre>
+<h3><span class="mw-headline" id="4._Start_Jupyter_Notebook_on_the_Allocated_Compute_Node">4. Start Jupyter Notebook on the Allocated Compute Node</span></h3>
+<p>Run Jupyter on a specific port:
+</p>
+<pre>jupyter notebook --port port1
+</pre>
+<p>Example:
+</p>
+<pre>jupyter notebook --port 9977
+</pre>
+<h3><span class="mw-headline" id="5._Create_an_SSH_Tunnel_from_Your_Local_Machine">5. Create an SSH Tunnel from Your Local Machine</span></h3>
+<p>On your local computer (laptop/desktop), start an SSH tunnel to the allocated compute node:
+</p>
+<pre>ssh -L &lt;port1&gt;:localhost:&lt;port2&gt; -J &lt;username&gt;@ada.iiit.ac.in &lt;username&gt;@gnodexxx
+</pre>
+<ul><li><code>port1</code>: Any available port on your local machine (e.g., 8888)</li>
+<li><code>port2</code>: The port where JupyterLab is running on the compute node</li>
+<li>Replace <code>gnodexxx</code> with the hostname of the allocated compute node.</li></ul>
+<h3><span class="mw-headline" id="6._Access_JupyterLab_in_Your_Browser">6. Access JupyterLab in Your Browser</span></h3>
+<p>Once the tunnel is established, open your web browser on your local machine and go to:
+</p>
+<pre>http://localhost:&lt;port1&gt;
+</pre>
+<p>You should now be able to access your JupyterLab interface.
+</p>
+<h4><span class="mw-headline" id="Note">Note</span></h4>
+<ul><li>An SSH server is required on the local machine for this method. On Windows, you can use:
+<ul><li><a rel="nofollow" class="external text" href="https://www.bitvise.com/ssh-serve">bitvise</a></li></ul></li>
+<li>Alternatively, you can configure a reverse SSH tunnel in your <code>.ssh/config</code> file: <a rel="nofollow" class="external text" href="https://unix.stackexchange.com/questions/162093/reverse-ssh-tunnel-in-config">Link</a></li>
+<li><b>A similar approach can be used to run TensorBoard.</b></li></ul>
+<h2><span class="mw-headline" id="Windows_Users">Windows Users</span></h2>
+<h3><span class="mw-headline" id="Connecting_to_Ada">Connecting to Ada</span></h3>
+<p>You need to connect to <a rel="nofollow" class="external text" href="https://vpn.iiit.ac.in/">IIIT VPN</a> first. After that, open Command Prompt and enter <code>ssh -X username@ada.iiit.ac.in</code>. Then you'll have to enter your Ada credentials. Once done, you're into the head-node of Ada, inside your <code>/home2/username/</code> directory.
+</p>
+<h3><span class="mw-headline" id="Mounting_Ada_to_Local">Mounting Ada to Local</span></h3>
+<p>Windows users can mount their Ada drive to their local computer using <a rel="nofollow" class="external text" href="https://www.nsoftware.com/sftp/drive/">SFTP Drive V2</a>, which is free for personal use. Doing this allows you to edit your code and upload/modify other files from your local computer.
+</p>
+<ol><li>The first step in mounting a remote server with SFTP Drive is to create a new drive. Click the <code>New...</code> button in the Drives tab and configure the drive to add it to the drive list. <br /> Use these values for configuration:
+<dl><dd><ul><li>Remote Host: <code>ada.iiit.ac.in</code></li>
+<li>Username and Password: Your Ada credentials</li>
+<li>Root folder on Server: <code>/home2/username</code></li>
+<li>You can leave other fields with their default values. <br /></li></ul></dd></dl></li>
+<li>In the top left of the application window click the <code>Start</code> button to mount the enabled drives. Alternatively, right click the System Tray icon and select <code>Start</code>.</li>
+<li>Once running, the options to <code>Stop</code> or <code>Restart</code> the application are enabled. Unmount all drives by clicking the <code>Stop</code> button. The buttons in the main application window or the context menu in the System Tray may be used to manage the application.</li></ol>
+<p>Detailed steps and alternative methods are listed in the <code>nsoftware.SFTPDrive.htm</code> document in the <code>help</code> folder of the software. Usually, it will be at <code>C:/Program Files/nsoftware/SFTP Drive V2/help</code>.
+</p>
+<h2><span class="mw-headline" id="Accessing_compute_nodes_via_VSCode">Accessing compute nodes via VSCode</span></h2>
+<p>1. Install the <b>RemoteSSH</b> extension in the VS Code application on your
+local machine.
+</p><p>2. Launch an interactive or batch job on Ada and record the compute node that is assigned to your job.
+</p><p>3. On your local machine, edit the ~/.ssh/config file to include the following configuration entry:
+</p><p>(Replace gnodexxx with the name of your assigned compute node and your_Ada_user_id with your Ada username.)
+</p>
+<div class="mw-highlight mw-content-ltr" dir="ltr"><pre>Host ada
+  HostName ada.iiit.ac.in
+  User your_Ada_user_id
+
+Host gnode
+  HostName gnodexxx
+  User your_Ada_user_id
+
+ProxyCommand ssh -W %h:%p ada</pre></div>
+<p>4. In the VSCode, use the <b>RemoteSSH</b> extension to connect directly to <b>gnode</b>.
+</p>
+<!-- 
+NewPP limit report
+Cached time: 20260906151403
+Cache expiry: 86400
+Reduced expiry: false
+Complications: [show‐toc]
+CPU time usage: 0.072 seconds
+Real time usage: 2.034 seconds
+Preprocessor visited node count: 299/1000000
+Post‐expand include size: 0/2097152 bytes
+Template argument size: 0/2097152 bytes
+Highest expansion depth: 2/100
+Expensive parser function count: 17/100
+Unstrip recursion depth: 0/20
+Unstrip post‐expand size: 14594/5000000 bytes
+-->
+<!--
+Transclusion expansion time report (%,ms,calls,template)
+100.00%    0.000      1 -total
+-->
+
+<!-- Saved in parser cache with key hpc_wiki:pcache:idhash:2-0!canonical and timestamp 20260906151403 and revision id 96. Rendering was triggered because: page-view
+ -->
+</div></div><div class="printfooter">
+Retrieved from "<a dir="ltr" href="https://hpc.iiit.ac.in/wiki/index.php?title=Ada_User_Guide&amp;oldid=96">https://hpc.iiit.ac.in/wiki/index.php?title=Ada_User_Guide&amp;oldid=96</a>"</div>
+<div class="visualClear"></div></div></div></div></div><div id="content-bottom-stuff"><div id="catlinks" class="catlinks" data-mw="interface"><div id="mw-normal-catlinks" class="mw-normal-catlinks"><a href="/wiki/index.php?title=Special:Categories" title="Special:Categories">Categories</a>: <ul><li><a href="/wiki/index.php?title=Category:Pages_using_deprecated_source_tags&amp;action=edit&amp;redlink=1" class="new" title="Category:Pages using deprecated source tags (page does not exist)">Pages using deprecated source tags</a></li><li><a href="/wiki/index.php?title=Category:Pages_with_syntax_highlighting_errors&amp;action=edit&amp;redlink=1" class="new" title="Category:Pages with syntax highlighting errors (page does not exist)">Pages with syntax highlighting errors</a></li></ul></div></div></div></div><div id="mw-site-navigation"><div id="p-logo" class="mw-portlet" role="banner"><a class="mw-wiki-logo timeless-logo" href="/wiki/index.php?title=Main_Page" title="Visit the main page"><img src="/wiki/resources/assets/iiit2.png"></a></div><div id="site-navigation" class="sidebar-chunk"><h2><span>Navigation</span></h2><div class="sidebar-inner"><div role="navigation" class="mw-portlet" id="p-navigation" aria-labelledby="p-navigation-label"><h3 id="p-navigation-label" lang="en" dir="ltr">Navigation</h3><div class="mw-portlet-body"><ul lang="en" dir="ltr"><li id="n-mainpage-description" class="mw-list-item"><a href="/wiki/index.php?title=Main_Page" title="Visit the main page [z]" accesskey="z"><span>Main page</span></a></li><li id="n-recentchanges" class="mw-list-item"><a href="/wiki/index.php?title=Special:RecentChanges" title="A list of recent changes in the wiki [r]" accesskey="r"><span>Recent changes</span></a></li><li id="n-randompage" class="mw-list-item"><a href="/wiki/index.php?title=Special:Random" title="Load a random page [x]" accesskey="x"><span>Random page</span></a></li><li id="n-help-mediawiki" class="mw-list-item"><a href="https://www.mediawiki.org/wiki/Special:MyLanguage/Help:Contents"><span>Help about MediaWiki</span></a></li></ul></div></div></div></div><div id="site-tools" class="sidebar-chunk"><h2><span>Wiki tools</span></h2><div class="sidebar-inner"><div role="navigation" class="mw-portlet" id="p-tb" aria-labelledby="p-tb-label"><h3 id="p-tb-label" lang="en" dir="ltr">Wiki tools</h3><div class="mw-portlet-body"><ul lang="en" dir="ltr"><li id="t-specialpages" class="mw-list-item"><a href="/wiki/index.php?title=Special:SpecialPages" title="A list of all special pages [q]" accesskey="q"><span>Special pages</span></a></li></ul></div></div></div></div></div><div id="mw-related-navigation"><div id="page-tools" class="sidebar-chunk"><h2><span>Page tools</span></h2><div class="sidebar-inner"><div role="navigation" class="mw-portlet emptyPortlet" id="p-cactions" title="More options" aria-labelledby="p-cactions-label"><h3 id="p-cactions-label" lang="en" dir="ltr">Page tools</h3><div class="mw-portlet-body"><ul lang="en" dir="ltr"></ul></div></div><div role="navigation" class="mw-portlet emptyPortlet" id="p-userpagetools" aria-labelledby="p-userpagetools-label"><h3 id="p-userpagetools-label" lang="en" dir="ltr">User page tools</h3><div class="mw-portlet-body"><ul lang="en" dir="ltr"></ul></div></div><div role="navigation" class="mw-portlet" id="p-pagemisc" aria-labelledby="p-pagemisc-label"><h3 id="p-pagemisc-label" lang="en" dir="ltr">More</h3><div class="mw-portlet-body"><ul lang="en" dir="ltr"><li id="t-whatlinkshere" class="mw-list-item"><a href="/wiki/index.php?title=Special:WhatLinksHere/Ada_User_Guide" title="A list of all wiki pages that link here [j]" accesskey="j"><span>What links here</span></a></li><li id="t-recentchangeslinked" class="mw-list-item"><a href="/wiki/index.php?title=Special:RecentChangesLinked/Ada_User_Guide" rel="nofollow" title="Recent changes in pages linked from this page [k]" accesskey="k"><span>Related changes</span></a></li><li id="t-print" class="mw-list-item"><a href="javascript:print();" rel="alternate" title="Printable version of this page [p]" accesskey="p"><span>Printable version</span></a></li><li id="t-permalink" class="mw-list-item"><a href="/wiki/index.php?title=Ada_User_Guide&amp;oldid=96" title="Permanent link to this revision of this page"><span>Permanent link</span></a></li><li id="t-info" class="mw-list-item"><a href="/wiki/index.php?title=Ada_User_Guide&amp;action=info" title="More information about this page"><span>Page information</span></a></li><li id="t-pagelog" class="mw-list-item"><a href="/wiki/index.php?title=Special:Log&amp;page=Ada+User+Guide"><span>Page logs</span></a></li></ul></div></div></div></div><div id="catlinks-sidebar" class="sidebar-chunk"><h2><span>Categories</span></h2><div class="sidebar-inner"><div id="sidebar-normal-catlinks" class="mw-normal-catlinks"><div role="navigation" class="mw-portlet" id="p-normal-catlinks" aria-labelledby="p-normal-catlinks-label"><h3 id="p-normal-catlinks-label" lang="en" dir="ltr">Categories</h3><div class="mw-portlet-body"><ul><li><a href="/wiki/index.php?title=Category:Pages_using_deprecated_source_tags&amp;action=edit&amp;redlink=1" class="new" title="Category:Pages using deprecated source tags (page does not exist)">Pages using deprecated source tags</a></li><li><a href="/wiki/index.php?title=Category:Pages_with_syntax_highlighting_errors&amp;action=edit&amp;redlink=1" class="new" title="Category:Pages with syntax highlighting errors (page does not exist)">Pages with syntax highlighting errors</a></li></ul></div></div></div></div></div></div><div class="visualClear"></div></div></div><div id="mw-footer-container" class="mw-footer-container ts-container"><div id="mw-footer" class="mw-footer ts-inner" role="contentinfo" lang="en" dir="ltr"><ul id="footer-icons"><li id="footer-poweredbyico" class="footer-icons"><a href="https://www.mediawiki.org/"><img src="/wiki/resources/assets/poweredby_mediawiki_88x31.png" alt="Powered by MediaWiki" srcset="/wiki/resources/assets/poweredby_mediawiki_132x47.png 1.5x, /wiki/resources/assets/poweredby_mediawiki_176x62.png 2x" width="88" height="31" loading="lazy"></a></li></ul><div id="footer-list"><ul id="footer-info"><li id="footer-info-lastmod"> This page was last edited on 22 April 2026, at 11:34.</li></ul><ul id="footer-places"><li id="footer-places-privacy"><a href="/wiki/index.php?title=HPC:Privacy_policy">Privacy policy</a></li><li id="footer-places-about"><a href="/wiki/index.php?title=HPC:About">About HPC</a></li><li id="footer-places-disclaimers"><a href="/wiki/index.php?title=HPC:General_disclaimer">Disclaimers</a></li></ul></div><div class="visualClear"></div></div></div></div><script>(RLQ=window.RLQ||[]).push(function(){mw.config.set({"wgBackendResponseTime":58,"wgPageParseReport":{"limitreport":{"cputime":"0.072","walltime":"2.034","ppvisitednodes":{"value":299,"limit":1000000},"postexpandincludesize":{"value":0,"limit":2097152},"templateargumentsize":{"value":0,"limit":2097152},"expansiondepth":{"value":2,"limit":100},"expensivefunctioncount":{"value":17,"limit":100},"unstrip-depth":{"value":0,"limit":20},"unstrip-size":{"value":14594,"limit":5000000},"timingprofile":["100.00%    0.000      1 -total"]},"cachereport":{"timestamp":"20260906151403","ttl":86400,"transientcontent":false}}});});</script>
+</body>
+</html>

@@ -10,7 +10,7 @@ export function Handoffs({ items }: { items: HandoffRecord[] }) {
     return <div className="text-muted text-xs p-3 text-center">no handoffs yet</div>;
   }
   return (
-    <div className="font-mono text-[11px]">
+    <div className="font-mono text-xs">
       {items.map((h, i) => (
         <div key={i} className="py-2 border-b border-line/30 last:border-0">
           <div className="flex items-center gap-2">

@@ -13,7 +13,7 @@ const STATUS_STYLES: Record<AgentStatus, string> = {
 export function StatusPill({ status }: { status: AgentStatus }) {
   return (
     <span
-      className={`text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full border ${STATUS_STYLES[status] ?? STATUS_STYLES.idle}`}
+      className={`text-xs uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full border ${STATUS_STYLES[status] ?? STATUS_STYLES.idle}`}
     >
       {status}
     </span>

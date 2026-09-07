@@ -28,7 +28,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -48,6 +48,7 @@ from .schemas import (
     Event,
     FeedbackRequest,
     ForceInputRequest,
+    LaunchAuxiliaryAgentRequest,
     SessionResponse,
     SessionSummary,
 )
@@ -55,6 +56,17 @@ from .session_store import SessionStore
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("orchestrator.app")
+
+
+def _events_after_cursor(events: list[Event], cursor: Optional[str]) -> list[Event]:
+    """Return strictly newer events; replay the bounded buffer for an unknown cursor."""
+    if not cursor:
+        return events
+    ids = [event.event_id for event in events]
+    try:
+        return events[ids.index(cursor) + 1:]
+    except ValueError:
+        return events
 
 
 def build_app() -> FastAPI:
@@ -122,6 +134,7 @@ def build_app() -> FastAPI:
         visible = psess.capture_visible_screen() if psess else ""
         recent = psess.recent_output(20) if psess else ""
         pending = safety.pending_for_agent(sid, aid)
+        alive = bool(psess and psess.is_alive())
         return AgentStateResponse(
             agent_id=aid,
             role=mem.role,
@@ -131,6 +144,26 @@ def build_app() -> FastAPI:
             last_decision=mem.last_decision,
             devin_session_id=mem.devin_session_id,
             pending_approval=pending.question if pending else None,
+            kind=mem.kind,
+            model=mem.model or settings.devin_model,
+            started_at=mem.started_at,
+            finished_at=mem.finished_at,
+            alive=alive,
+        )
+
+    def _active_agents(s) -> list[str]:
+        return sorted(
+            aid for aid in s.agents
+            if (psess := pty_manager.get(aid, s.session_id)) is not None and psess.is_alive()
+        )
+
+    def _session_response(s) -> SessionResponse:
+        return SessionResponse(
+            session_id=s.session_id, goal=s.goal,
+            agents={aid: _agent_state_response(s.session_id, aid) for aid in s.agents},
+            active_agent=s.active_agent, active_agents=_active_agents(s),
+            done=s.done, approval_mode=s.approval_mode, workspace=s.workspace,
+            pipeline=s.pipeline, stage_index=s.stage_index,
         )
 
     def _prepare_workspace(req: CreateSessionRequest) -> tuple[Path, Path, str]:
@@ -238,31 +271,13 @@ def build_app() -> FastAPI:
                 sess, first_agent,
                 resume_session_id=spec.resume_session_id,
             )
-        return SessionResponse(
-            session_id=sess.session_id,
-            goal=sess.goal,
-            active_agent=sess.active_agent,
-            done=sess.done,
-            approval_mode=sess.approval_mode,
-            workspace=sess.workspace,
-            pipeline=sess.pipeline,
-            stage_index=sess.stage_index,
-        )
+        return _session_response(sess)
 
     @app.get("/sessions")
     def list_sessions() -> list[SessionResponse]:
         out = []
         for sid, s in sessions.all().items():
-            out.append(SessionResponse(
-                session_id=sid,
-                goal=s.goal,
-                active_agent=s.active_agent,
-                done=s.done,
-                approval_mode=s.approval_mode,
-                workspace=s.workspace,
-                pipeline=s.pipeline,
-                stage_index=s.stage_index,
-            ))
+            out.append(_session_response(s))
         return out
 
     @app.get("/sessions/all", response_model=list[SessionSummary])
@@ -340,7 +355,7 @@ def build_app() -> FastAPI:
                 goal=s.goal,
                 active_agent=s.active_agent,
                 done=s.done,
-                live=True,
+                live=bool(_active_agents(s)),
                 agent_roles=live_roles or (existing.agent_roles if existing else []),
                 agent_count=len(s.agents) or (existing.agent_count if existing else 0),
                 events_count=len(s.events),
@@ -361,17 +376,7 @@ def build_app() -> FastAPI:
     @app.get("/sessions/{sid}", response_model=SessionResponse)
     def get_session(sid: str) -> SessionResponse:
         s = _session_or_404(sid)
-        return SessionResponse(
-            session_id=s.session_id,
-            goal=s.goal,
-            agents={aid: _agent_state_response(sid, aid) for aid in s.agents},
-            active_agent=s.active_agent,
-            done=s.done,
-            approval_mode=s.approval_mode,
-            workspace=s.workspace,
-            pipeline=s.pipeline,
-            stage_index=s.stage_index,
-        )
+        return _session_response(s)
 
     @app.delete("/sessions/{sid}")
     def delete_session(sid: str) -> dict:
@@ -415,13 +420,63 @@ def build_app() -> FastAPI:
             ),
         )
         s.persist_runtime()
-        return SessionResponse(
-            session_id=s.session_id, goal=s.goal,
-            agents={aid: _agent_state_response(sid, aid) for aid in s.agents},
-            active_agent=s.active_agent, done=s.done,
-            approval_mode=s.approval_mode, workspace=s.workspace,
-            pipeline=s.pipeline, stage_index=s.stage_index,
-        )
+        return _session_response(s)
+
+    @app.post("/sessions/{sid}/agents", response_model=AgentStateResponse)
+    def launch_auxiliary_agent(sid: str, req: LaunchAuxiliaryAgentRequest) -> AgentStateResponse:
+        s = _session_or_404(sid)
+        try:
+            get_role(req.role)
+        except KeyError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+        cwd = req.cwd or s.workspace
+        if cwd:
+            candidate = Path(cwd).resolve()
+            try:
+                candidate.relative_to(settings.workspace_root.resolve())
+            except ValueError:
+                raise HTTPException(status_code=400, detail="agent cwd escapes workspace root")
+            if not candidate.is_dir():
+                raise HTTPException(status_code=400, detail="agent cwd does not exist")
+            cwd = str(candidate)
+        try:
+            orch.launch_auxiliary_agent(
+                s, req.agent_id, req.role, req.prompt, cwd=cwd,
+                model=req.model, resume_session_id=req.resume_session_id,
+            )
+        except RuntimeError as exc:
+            raise HTTPException(status_code=409, detail=str(exc))
+        return _agent_state_response(sid, req.agent_id)
+
+    @app.post("/sessions/{sid}/agents/{aid}/pause")
+    def pause_agent(sid: str, aid: str) -> dict:
+        s = _session_or_404(sid)
+        if aid not in s.agents:
+            raise HTTPException(status_code=404, detail=f"agent {aid} not in session")
+        try:
+            orch.pause_agent(s, aid)
+        except RuntimeError as exc:
+            raise HTTPException(status_code=409, detail=str(exc))
+        return {"agent_id": aid, "status": "paused"}
+
+    @app.post("/sessions/{sid}/agents/{aid}/resume-process")
+    def resume_agent_process(sid: str, aid: str) -> dict:
+        s = _session_or_404(sid)
+        if aid not in s.agents:
+            raise HTTPException(status_code=404, detail=f"agent {aid} not in session")
+        try:
+            orch.resume_agent_process(s, aid)
+        except RuntimeError as exc:
+            raise HTTPException(status_code=409, detail=str(exc))
+        return {"agent_id": aid, "status": "running"}
+
+    @app.post("/sessions/{sid}/agents/{aid}/stop")
+    def stop_managed_agent(sid: str, aid: str) -> dict:
+        s = _session_or_404(sid)
+        if aid not in s.agents:
+            raise HTTPException(status_code=404, detail=f"agent {aid} not in session")
+        orch.stop_agent(s, aid)
+        return {"agent_id": aid, "status": "stopped"}
 
     # ------------------------------------------------------------------ feedback
 
@@ -505,58 +560,48 @@ def build_app() -> FastAPI:
     # ------------------------------------------------------------------ events (SSE)
 
     @app.get("/sessions/{sid}/events")
-    async def stream_events(sid: str):
+    async def stream_events(sid: str, last_event_id: Optional[str] = Header(None)):
         s = _session_or_404(sid)
 
         async def gen():
-            # Track the total number of events we've already sent. Each poll,
-            # we compare against the current event list length. Because
-            # recent_events() may truncate to the last 2000, we use the
-            # timestamp of the last sent event as a watermark to avoid
-            # re-sending or skipping after truncation.
-            last_sent_ts = 0.0
+            cursor = last_event_id
             while True:
                 events = s.recent_events(2000)
-                new = [ev for ev in events if ev.timestamp > last_sent_ts]
-                for ev in new:
+                events = _events_after_cursor(events, cursor)
+                for ev in events:
                     payload = json.dumps(ev.model_dump(), default=str)
-                    yield f"data: {payload}\n\n"
-                if new:
-                    last_sent_ts = new[-1].timestamp
+                    yield f"id: {ev.event_id}\ndata: {payload}\n\n"
+                    cursor = ev.event_id
                 await asyncio.sleep(0.5)
 
-        return StreamingResponse(gen(), media_type="text/event-stream")
+        return StreamingResponse(gen(), media_type="text/event-stream",
+                                 headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
     # ------------------------------------------------------------------ global events (SSE)
 
     @app.get("/events")
-    async def stream_all_events():
-        """Global SSE stream: every event from every live session.
-
-        The dashboard home page subscribes to this to show a live terminal
-        of what's going on across the whole orchestrator. Also emits periodic
-        `heartbeat` events so consumers can render a clock / liveness dot.
-        """
+    async def stream_all_events(last_event_id: Optional[str] = Header(None)):
         async def gen():
-            last_sent_ts = 0.0
+            cursor = last_event_id
             last_heartbeat = 0.0
             while True:
+                events = sorted(
+                    (ev for session in sessions.all().values() for ev in session.recent_events(2000)),
+                    key=lambda ev: int((ev.event_id or ":0").rsplit(":", 1)[-1]),
+                )
+                events = _events_after_cursor(events, cursor)
+                for ev in events:
+                    payload = json.dumps(ev.model_dump(), default=str)
+                    yield f"id: {ev.event_id}\ndata: {payload}\n\n"
+                    cursor = ev.event_id
                 now = time.time()
-                for sid, s in sessions.all().items():
-                    for ev in s.recent_events(2000):
-                        if ev.timestamp > last_sent_ts:
-                            payload = json.dumps(ev.model_dump(), default=str)
-                            yield f"data: {payload}\n\n"
-                            if ev.timestamp > last_sent_ts:
-                                last_sent_ts = ev.timestamp
-                # Heartbeat once per second so the UI can show liveness even
-                # when nothing is happening.
-                if now - last_heartbeat >= 1.0:
-                    yield f"data: {json.dumps({'type': 'heartbeat', 'session_id': '', 'data': {'ts': now}, 'timestamp': now})}\n\n"
+                if now - last_heartbeat >= 10:
+                    yield f": heartbeat {now}\n\n"
                     last_heartbeat = now
                 await asyncio.sleep(0.5)
 
-        return StreamingResponse(gen(), media_type="text/event-stream")
+        return StreamingResponse(gen(), media_type="text/event-stream",
+                                 headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
     # ------------------------------------------------------------------ logs / recording
 

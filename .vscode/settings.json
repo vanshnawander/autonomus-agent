@@ -1,0 +1,7 @@
+{
+  "git.autoRepositoryDetection": true,
+  "git.repositoryScanMaxDepth": 4,
+  "git.scanRepositories": [
+    "runs/idea1-grounded-ocr-20260905"
+  ]
+}

@@ -199,13 +199,15 @@ class Orchestrator:
                     if session.approval_mode.value == "autonomous"
                     else "auto"
                 ),
+                model=mem.model,
             )
         sess = self.pty.create(agent_id, command, cwd=mem.cwd, project_id=session.session_id)
         sess.start()
         if self.recorder is not None:
             self.recorder.register_agent(session.session_id, agent_id, role.key)
         session.set_status(agent_id, AgentStatus.running)
-        session.active_agent = agent_id
+        if mem.kind == "pipeline":
+            session.active_agent = agent_id
         session.persist_runtime()
         arec = self._arec(session.session_id, agent_id)
         session.emit(Event(
@@ -217,7 +219,8 @@ class Orchestrator:
                 "resume": resume_session_id is not None,
                 "attempt": mem.attempt_count,
                 "recording_attempt": arec.attempt_id if arec else None,
-                "devin_model": settings.devin_model,
+                "devin_model": mem.model or settings.devin_model,
+                "kind": mem.kind,
             },
         ))
 
@@ -235,6 +238,40 @@ class Orchestrator:
         with self._lock:
             self._loops[run_key] = thread
         thread.start()
+
+    def launch_auxiliary_agent(
+        self, session: Session, agent_id: str, role: str, prompt: str,
+        cwd: Optional[str] = None, model: Optional[str] = None,
+        resume_session_id: Optional[str] = None,
+    ) -> None:
+        if session.get_agent(agent_id) is not None:
+            raise RuntimeError(f"Agent {agent_id} already exists in session {session.session_id}")
+        get_role(role)
+        mem = session.add_agent(agent_id, role, kind="auxiliary", model=model)
+        mem.cwd = cwd or session.workspace
+        mem.extra_prompt = prompt
+        session.persist_runtime()
+        self.start_agent(session, agent_id, resume_session_id=resume_session_id)
+        session.emit(Event(
+            type="auxiliary_agent_launched", session_id=session.session_id,
+            agent_id=agent_id, data={"role": role, "model": model or settings.devin_model},
+        ))
+
+    def pause_agent(self, session: Session, agent_id: str) -> None:
+        psess = self.pty.get(agent_id, session.session_id)
+        if psess is None:
+            raise RuntimeError(f"Agent {agent_id} is not running")
+        psess.pause()
+        session.set_status(agent_id, AgentStatus.paused)
+        session.emit(Event(type="agent_paused", session_id=session.session_id, agent_id=agent_id))
+
+    def resume_agent_process(self, session: Session, agent_id: str) -> None:
+        psess = self.pty.get(agent_id, session.session_id)
+        if psess is None:
+            raise RuntimeError(f"Agent {agent_id} is not running")
+        psess.resume()
+        session.set_status(agent_id, AgentStatus.running)
+        session.emit(Event(type="agent_resumed", session_id=session.session_id, agent_id=agent_id))
 
     # ------------------------------------------------------------------ stop / restart
 
@@ -644,6 +681,16 @@ class Orchestrator:
         m = _DONE_RE.search(recent)
         if m:
             stage = m.group(1).lower()
+            if mem.kind == "auxiliary" and stage == mem.role:
+                self.pty.remove(agent_id, force=True, project_id=session.session_id)
+                session.set_summary(agent_id, f"Auxiliary task {stage} reported done.")
+                session.set_status(agent_id, AgentStatus.done)
+                session.emit(Event(type="auxiliary_agent_done", session_id=session.session_id,
+                                   agent_id=agent_id, data={"stage": stage}))
+                self._finalize_agent_summary(session, agent_id, status="done")
+                if self.recorder:
+                    self.recorder.close_agent(session.session_id, agent_id)
+                return
             if get_role(mem.role).is_gate or stage != mem.role or session.current_stage() != mem.role:
                 session.emit(Event(
                     type="invalid_stage_marker",
@@ -655,6 +702,8 @@ class Orchestrator:
             self.pty.remove(agent_id, force=True, project_id=session.session_id)
             self._handle_handoff(session, agent_id, kind="done", stage=stage)
             session.set_summary(agent_id, f"Stage {stage} reported done.")
+            mem.finished_at = time.time()
+            self._finalize_agent_summary(session, agent_id, status="done")
             session.set_status(agent_id, AgentStatus.done)
             session.emit(Event(
                 type="agent_done",
@@ -662,7 +711,6 @@ class Orchestrator:
                 agent_id=agent_id,
                 data={"stage": stage},
             ))
-            self._finalize_agent_summary(session, agent_id, status="done")
             if self.recorder:
                 self.recorder.close_agent(session.session_id, agent_id)
             return

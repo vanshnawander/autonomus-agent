@@ -37,6 +37,7 @@ class Server:
     identity_file: str | None
     workdir: str
     max_runtime_minutes: int
+    max_nodes: int
     allowed_command_prefixes: tuple[str, ...]
     notes: str
     enabled: bool
@@ -129,6 +130,11 @@ def load_inventory(path: Path) -> dict[str, Server]:
         max_runtime = restrictions.get("max_runtime_minutes", 60)
         if not 1 <= max_runtime <= 1440:
             raise ValueError(f"server {name!r} max_runtime_minutes must be between 1 and 1440")
+        if type(restrictions.get("max_nodes", 1)) is not int:
+            raise ValueError("max_nodes must be an integer")
+        max_nodes = restrictions.get("max_nodes", 1)
+        if not 1 <= max_nodes <= 4:
+            raise ValueError(f"server {name!r} max_nodes must be between 1 and 4")
 
         host = _expect_text(item.get("host"), "host")
         user = _expect_text(item.get("user"), "user")
@@ -146,6 +152,7 @@ def load_inventory(path: Path) -> dict[str, Server]:
             identity_file=str(identity_path) if identity_path else None,
             workdir=workdir,
             max_runtime_minutes=max_runtime,
+            max_nodes=max_nodes,
             allowed_command_prefixes=tuple(v.strip() for v in prefixes),
             notes=str(restrictions.get("notes", "")),
             enabled=bool(item.get("enabled", True)),
@@ -164,6 +171,7 @@ def redacted_inventory(path: Path) -> list[dict[str, Any]]:
             "auth": "identity_file" if server.identity_file else "password",
             "workdir": server.workdir,
             "max_runtime_minutes": server.max_runtime_minutes,
+            "max_nodes": server.max_nodes,
             "allowed_command_prefixes": list(server.allowed_command_prefixes),
             "notes": server.notes,
             "enabled": server.enabled,

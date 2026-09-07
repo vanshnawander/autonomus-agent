@@ -25,6 +25,7 @@ from .schemas import (
     ControllerDecision,
     Event,
     FeedbackMode,
+    next_event_id,
 )
 from .config import settings
 from .roles import build_pipeline
@@ -58,6 +59,8 @@ class AgentMemory:
     command: Optional[str] = None
     # Optional working directory override (from AgentSpec.cwd).
     cwd: Optional[str] = None
+    kind: str = "pipeline"
+    model: Optional[str] = None
 
 
 @dataclass
@@ -97,6 +100,17 @@ class Session:
             "active_agent": self.active_agent,
             "done": self.done,
             "updated_at": time.time(),
+            "agents": {
+                aid: {
+                    "role": mem.role,
+                    "command": mem.command,
+                    "cwd": mem.cwd,
+                    "extra_prompt": mem.extra_prompt,
+                    "kind": mem.kind,
+                    "model": mem.model,
+                }
+                for aid, mem in self.agents.items()
+            },
             "agents_runtime": {
                 aid: {
                     "status": mem.status.value,
@@ -105,6 +119,8 @@ class Session:
                     "retry_count": mem.retry_count,
                     "started_at": mem.started_at,
                     "finished_at": mem.finished_at,
+                    "kind": mem.kind,
+                    "model": mem.model,
                 }
                 for aid, mem in self.agents.items()
             },
@@ -113,6 +129,8 @@ class Session:
     # ------------------------------------------------------------------ events
 
     def emit(self, event: Event) -> None:
+        if event.event_id is None:
+            event.event_id = next_event_id()
         if event.timestamp == 0.0:
             event.timestamp = time.time()
         with self._lock:
@@ -132,9 +150,12 @@ class Session:
 
     # ------------------------------------------------------------------ agents
 
-    def add_agent(self, agent_id: str, role: str) -> AgentMemory:
+    def add_agent(
+        self, agent_id: str, role: str, kind: str = "pipeline",
+        model: Optional[str] = None,
+    ) -> AgentMemory:
         with self._lock:
-            mem = AgentMemory(agent_id=agent_id, role=role)
+            mem = AgentMemory(agent_id=agent_id, role=role, kind=kind, model=model)
             self.agents[agent_id] = mem
             return mem
 
@@ -325,6 +346,8 @@ class SessionStore:
                             "command": memory.command,
                             "cwd": memory.cwd,
                             "extra_prompt": memory.extra_prompt,
+                            "kind": memory.kind,
+                            "model": memory.model,
                         }
                         for aid, memory in sess.agents.items()
                     },
@@ -378,6 +401,8 @@ class SessionStore:
                 )
                 mem.extra_prompt = spec.get("extra_prompt")
                 mem.devin_session_id = state.get("devin_session_id")
+                mem.kind = str(spec.get("kind", state.get("kind", "pipeline")))
+                mem.model = spec.get("model", state.get("model"))
                 mem.attempt_count = int(state.get("attempt_count", 0))
                 mem.retry_count = int(state.get("retry_count", 0))
                 mem.started_at = state.get("started_at")
