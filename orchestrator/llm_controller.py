@@ -61,7 +61,9 @@ class LLMController:
         kwargs = {"api_key": settings.llm_api_key or "missing"}
         if settings.llm_base_url:
             kwargs["base_url"] = settings.llm_base_url
-        self._client = OpenAI(**kwargs)
+        self._client = OpenAI(**kwargs, timeout=20.0, max_retries=0)
+        self.last_error: Optional[str] = None
+        self.consecutive_errors = 0
         self._model = settings.llm_model
 
     def decide(self, snapshot: dict, visible_terminal: str, recent_output: str) -> ControllerDecision:
@@ -97,17 +99,27 @@ class LLMController:
             resp = self._client.chat.completions.create(**request)
             raw = resp.choices[0].message.content or "{}"
             data = json.loads(raw)
-            return ControllerDecision.model_validate(data)
+            decision = ControllerDecision.model_validate(data)
+            self.last_error = None
+            self.consecutive_errors = 0
+            return decision
         except Exception as exc:  # noqa: BLE001 - we must never crash the loop
-            log.warning("LLM controller failed (%s); returning safe wait", exc)
+            self.consecutive_errors += 1
+            self.last_error = f"{type(exc).__name__}: {exc}"[:500]
+            permanent = getattr(exc, "status_code", None) in {400, 401, 403, 404}
+            exhausted = permanent or self.consecutive_errors >= 3
+            log.warning("LLM controller failed (%s); attempt %s", self.last_error, self.consecutive_errors)
             return ControllerDecision(
-                state=AgentState.thinking,
-                action=ActionType.wait,
-                duration_ms=1000,
+                state=AgentState.needs_human if exhausted else AgentState.thinking,
+                action=ActionType.ask_human if exhausted else ActionType.wait,
+                duration_ms=min(1000 * 2 ** min(self.consecutive_errors, 4), 10000),
                 confidence=0.0,
                 risk=Risk.unknown,
-                reason=f"controller error: {exc}",
+                reason=(f"controller error: {self.last_error}. "
+                        + ("Controller suspended; repair configuration and resume the agent."
+                           if exhausted else "Retrying after bounded backoff.")),
             )
+
 
 
 # A no-LLM fallback controller used in tests / when no API key is configured.

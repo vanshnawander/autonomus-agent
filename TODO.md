@@ -7,7 +7,7 @@ Contributions are welcome. Before starting a large change, open an issue describ
 ## Current focus
 
 - [ ] Stabilize the core orchestration loop and recovery behavior
-- [ ] Complete the provider abstraction for CLI-based agents
+- [x] Complete the provider abstraction for CLI-based agents
 - [ ] Improve human-review and approval workflows
 - [ ] Add continuous integration and broader automated test coverage
 - [ ] Validate the system on reproducible end-to-end research runs
@@ -17,12 +17,12 @@ Contributions are welcome. Before starting a large change, open an issue describ
 Devin CLI is the current reference implementation. The goal is to support any agent that can run in a terminal and expose a controllable process lifecycle.
 
 - [x] Devin CLI reference integration
-- [ ] Define a documented CLI-agent adapter interface
-- [ ] OpenCode adapter
-- [ ] Codex CLI adapter
-- [ ] Claude Code adapter
-- [ ] Per-agent capability detection
-- [ ] Provider-specific resume and trace export support
+- [x] Define a documented CLI-agent adapter interface (docs/AGENT_PLUGINS.md)
+- [x] OpenCode adapter
+- [x] Codex CLI adapter
+- [x] Claude Code adapter
+- [x] Per-agent capability detection
+- [x] Provider-specific resume and trace export support
 - [ ] Configurable fallback to another agent when a process fails
 - [ ] Adapter conformance tests
 
@@ -35,7 +35,7 @@ Devin CLI is the current reference implementation. The goal is to support any ag
 - [ ] Validate resumed session identifiers before reuse
 - [ ] Add graceful shutdown and restart handling
 - [ ] Prevent duplicate execution after reconnects
-- [ ] Sanitize terminal output before controller evaluation
+- [x] Sanitize terminal output in event streams
 - [ ] Add health metrics for agents, queues, and event streams
 
 ## Human review and safety

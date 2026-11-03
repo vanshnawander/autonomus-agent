@@ -72,8 +72,9 @@ class TerminalScreen:
     def resize(self, cols: int, rows: int) -> None:
         with self._lock:
             self._cols, self._rows = cols, rows
-            self._screen = pyte.Screen(cols, rows)
-            self._stream = pyte.Stream(self._screen)
+            # Resize in place; recreating the screen blanked it until the CLI
+            # happened to redraw everything.
+            self._screen.resize(lines=rows, columns=cols)
 
     def feed(self, data: str) -> None:
         if not data:

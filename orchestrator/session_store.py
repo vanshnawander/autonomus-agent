@@ -61,6 +61,10 @@ class AgentMemory:
     cwd: Optional[str] = None
     kind: str = "pipeline"
     model: Optional[str] = None
+    # CLI adapter key (devin, opencode, codex, claude-code). None = session default.
+    cli: Optional[str] = None
+    # Question the controller escalated to a human; cleared by human input.
+    attention: Optional[str] = None
 
 
 @dataclass
@@ -77,6 +81,7 @@ class Session:
     goal: str
     constraints: list[str] = field(default_factory=list)
     approval_mode: ApprovalMode = ApprovalMode.manual
+    agent_cli: str = field(default_factory=lambda: settings.default_agent_cli)
     workspace: Optional[str] = None
     project_brief_path: Optional[str] = None
     project_brief_sha256: Optional[str] = None
@@ -108,6 +113,7 @@ class Session:
                     "extra_prompt": mem.extra_prompt,
                     "kind": mem.kind,
                     "model": mem.model,
+                    "cli": mem.cli,
                 }
                 for aid, mem in self.agents.items()
             },
@@ -152,30 +158,55 @@ class Session:
 
     def add_agent(
         self, agent_id: str, role: str, kind: str = "pipeline",
-        model: Optional[str] = None,
+        model: Optional[str] = None, cli: Optional[str] = None,
     ) -> AgentMemory:
         with self._lock:
-            mem = AgentMemory(agent_id=agent_id, role=role, kind=kind, model=model)
+            mem = AgentMemory(agent_id=agent_id, role=role, kind=kind, model=model, cli=cli)
             self.agents[agent_id] = mem
             return mem
 
     def get_agent(self, agent_id: str) -> Optional[AgentMemory]:
         return self.agents.get(agent_id)
 
+    def cli_for(self, agent_id: str) -> str:
+        mem = self.agents.get(agent_id)
+        return (mem.cli if mem and mem.cli else None) or self.agent_cli
+
+    def mark_started(self, agent_id: str) -> None:
+        """Record a new process launch (fresh start, retry, or resume)."""
+        with self._lock:
+            mem = self.agents.get(agent_id)
+            if mem:
+                mem.status = AgentStatus.running
+                mem.attempt_count += 1
+                mem.started_at = time.time()
+                mem.finished_at = None
+                mem.low_confidence_streak = 0
+                mem.idle_wait_streak = 0
+                mem.attention = None
+        self.persist_runtime()
+
     def set_status(self, agent_id: str, status: AgentStatus) -> None:
+        # Status changes never count as a new attempt: un-pausing after manual
+        # input or an approval used to bump attempt_count and reset started_at,
+        # which inflated attempts and restarted the per-agent timeout clock.
         with self._lock:
             mem = self.agents.get(agent_id)
             if mem:
                 mem.status = status
                 if status == AgentStatus.running:
-                    mem.attempt_count += 1
-                    mem.started_at = time.time()
-                    mem.finished_at = None
                     mem.low_confidence_streak = 0
                     mem.idle_wait_streak = 0
                 if status in (AgentStatus.done, AgentStatus.stopped, AgentStatus.error):
                     mem.finished_at = time.time()
+                    mem.attention = None
         self.persist_runtime()
+
+    def set_attention(self, agent_id: str, question: Optional[str]) -> None:
+        with self._lock:
+            mem = self.agents.get(agent_id)
+            if mem:
+                mem.attention = question
 
     def set_summary(self, agent_id: str, summary: str) -> None:
         with self._lock:
@@ -296,20 +327,20 @@ class SessionStore:
         workspace: Optional[str] = None,
         project_brief_path: Optional[str] = None,
         project_brief_sha256: Optional[str] = None,
+        agent_cli: Optional[str] = None,
     ) -> Session:
-        """Each agent spec is (id, role, command, cwd[, persistent_extra_prompt])."""
+        """Each agent spec is (id, role, command, cwd[, extra_prompt[, cli[, model]]])."""
         normalized_specs = []
         for spec in agent_specs:
-            if len(spec) not in (4, 5):
-                raise ValueError("agent spec must contain 4 or 5 values")
-            aid, role, command, cwd = spec[:4]
-            extra_prompt = spec[4] if len(spec) == 5 else None
-            normalized_specs.append((aid, role, command, cwd, extra_prompt))
+            if len(spec) not in (4, 5, 6, 7):
+                raise ValueError("agent spec must contain 4 to 7 values")
+            padded = tuple(spec) + (None,) * (7 - len(spec))
+            normalized_specs.append(padded)
 
         with self._lock:
             if session_id in self._sessions:
                 raise RuntimeError(f"Session {session_id} already exists")
-            declared_roles = {role for _aid, role, _c, _w, _p in normalized_specs}
+            declared_roles = {spec[1] for spec in normalized_specs}
             pipeline = build_pipeline(declared_roles)
             sess = Session(
                 session_id=session_id,
@@ -317,12 +348,13 @@ class SessionStore:
                 constraints=list(constraints),
                 pipeline=pipeline,
                 approval_mode=approval_mode,
+                agent_cli=agent_cli or settings.default_agent_cli,
                 workspace=workspace,
                 project_brief_path=project_brief_path,
                 project_brief_sha256=project_brief_sha256,
             )
-            for aid, role, cmd, cwd, extra_prompt in normalized_specs:
-                mem = sess.add_agent(aid, role)
+            for aid, role, cmd, cwd, extra_prompt, cli, model in normalized_specs:
+                mem = sess.add_agent(aid, role, model=model, cli=cli)
                 mem.command = cmd
                 mem.cwd = cwd
                 mem.extra_prompt = extra_prompt
@@ -340,6 +372,7 @@ class SessionStore:
                     "project_brief_sha256": project_brief_sha256,
                     "orchestrator_model": settings.llm_model,
                     "devin_model": settings.devin_model,
+                    "agent_cli": sess.agent_cli,
                     "agents": {
                         aid: {
                             "role": memory.role,
@@ -348,6 +381,7 @@ class SessionStore:
                             "extra_prompt": memory.extra_prompt,
                             "kind": memory.kind,
                             "model": memory.model,
+                            "cli": memory.cli,
                         }
                         for aid, memory in sess.agents.items()
                     },
@@ -382,6 +416,8 @@ class SessionStore:
                 active_agent=manifest.get("active_agent"),
                 done=bool(manifest.get("done", False)),
                 approval_mode=ApprovalMode(manifest.get("approval_mode", "manual")),
+                # Runs recorded before CLI adapters existed were all Devin.
+                agent_cli=str(manifest.get("agent_cli") or "devin"),
                 workspace=manifest.get("workspace"),
                 project_brief_path=manifest.get("project_brief_path"),
                 project_brief_sha256=manifest.get("project_brief_sha256"),
@@ -403,6 +439,7 @@ class SessionStore:
                 mem.devin_session_id = state.get("devin_session_id")
                 mem.kind = str(spec.get("kind", state.get("kind", "pipeline")))
                 mem.model = spec.get("model", state.get("model"))
+                mem.cli = spec.get("cli")
                 mem.attempt_count = int(state.get("attempt_count", 0))
                 mem.retry_count = int(state.get("retry_count", 0))
                 mem.started_at = state.get("started_at")

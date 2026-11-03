@@ -63,6 +63,14 @@ export interface AgentStateResponse {
   started_at?: number | null;
   finished_at?: number | null;
   alive?: boolean;
+  /** Agent CLI running this agent ("devin" | "opencode" | "codex" | "claude-code"). */
+  agent_cli?: string | null;
+  /** Resumable CLI session id (same value as legacy devin_session_id). */
+  cli_session_id?: string | null;
+  /** Question the controller escalated to a human; cleared when a human sends input. */
+  attention?: string | null;
+  attempt_count?: number | null;
+  retry_count?: number | null;
 }
 
 export interface SessionResponse {
@@ -78,7 +86,12 @@ export interface SessionResponse {
   project_brief?: string;
   pipeline?: string[];
   stage_index?: number;
+  agent_cli?: string | null;
+  current_stage?: string | null;
+  controller_error?: string | null;
 }
+
+export type RunStatus = "running" | "needs_attention" | "stopped" | "done" | "error";
 
 export interface SessionSummary {
   session_id: string;
@@ -95,6 +108,10 @@ export interface SessionSummary {
   workspace?: string | null;
   pipeline?: string[];
   stage_index?: number;
+  agent_cli?: string | null;
+  current_stage?: string | null;
+  needs_attention?: boolean;
+  status?: RunStatus;
 }
 
 export interface AgentSpec {
@@ -104,6 +121,8 @@ export interface AgentSpec {
   cwd?: string | null;
   resume_session_id?: string | null;
   extra_prompt?: string | null;
+  agent_cli?: string | null;
+  model?: string | null;
 }
 
 export interface CreateSessionRequest {
@@ -114,6 +133,7 @@ export interface CreateSessionRequest {
   approval_mode: ApprovalMode;
   workspace: string;
   project_brief: string;
+  agent_cli?: string | null;
 }
 
 export interface LaunchAuxiliaryAgentRequest {
@@ -123,6 +143,7 @@ export interface LaunchAuxiliaryAgentRequest {
   model?: string | null;
   cwd?: string | null;
   resume_session_id?: string | null;
+  agent_cli?: string | null;
 }
 
 export interface ApprovalItem {
@@ -155,10 +176,38 @@ export interface PreflightResponse {
   checks: Record<string, { ok: boolean; detail: string }>;
 }
 
+export interface AgentCliCapabilities {
+  resume: boolean;
+  trace_export: boolean;
+  session_id_capture: boolean;
+  model_selection: boolean;
+}
+
+export interface AgentCliInfo {
+  name: string;
+  display_name: string;
+  description: string;
+  installed: boolean;
+  command: string;
+  default_model: string | null;
+  model_hint: string;
+  capabilities: AgentCliCapabilities;
+  notes: string;
+}
+
+export interface AgentClisResponse {
+  default: string;
+  clis: AgentCliInfo[];
+}
+
 export interface HealthResponse {
   status: string;
-  devin_command: string;
-  devin_model: string;
+  controller_error?: string | null;
+  controller_consecutive_errors?: number;
+  default_agent_cli?: string;
+  agent_clis?: Record<string, boolean>;
+  devin_command?: string;
+  devin_model?: string;
   llm_model: string;
   llm_max_tokens?: number | null;
   llm_configured: boolean;

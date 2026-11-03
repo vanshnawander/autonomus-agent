@@ -111,11 +111,16 @@ class AgentSpec(BaseModel):
     )
     role: str = Field(..., description="Role key, must match a role in orchestrator/roles.py")
     command: Optional[str] = Field(
-        None, description="Override the spawn command (defaults to `devin` + role prompt)"
+        None, description="Override the spawn command (defaults to the agent CLI + role prompt)"
     )
+    agent_cli: Optional[str] = Field(
+        None, max_length=40,
+        description="CLI adapter for this agent (devin, opencode, codex, claude-code); defaults to the session's",
+    )
+    model: Optional[str] = Field(None, max_length=100, description="Model passed to the agent CLI")
     cwd: Optional[str] = Field(None, description="Working directory for the agent")
     resume_session_id: Optional[str] = Field(
-        None, description="Devin session id to resume with `devin -r <id>` instead of starting fresh"
+        None, description="CLI session id to resume instead of starting fresh"
     )
     extra_prompt: Optional[str] = Field(
         None, description="Additional prompt text appended to the role's system prompt at spawn"
@@ -129,6 +134,7 @@ class LaunchAuxiliaryAgentRequest(BaseModel):
     role: str
     prompt: str = Field(..., min_length=1)
     model: Optional[str] = Field(None, max_length=100)
+    agent_cli: Optional[str] = Field(None, max_length=40)
     cwd: Optional[str] = None
     resume_session_id: Optional[str] = Field(None, max_length=100)
 
@@ -142,6 +148,9 @@ class CreateSessionRequest(BaseModel):
     goal: str = Field(..., min_length=1, description="Top-level goal for the orchestrator")
     constraints: list[str] = Field(default_factory=list)
     approval_mode: ApprovalMode = ApprovalMode.manual
+    agent_cli: Optional[str] = Field(
+        None, max_length=40, description="Default CLI adapter for every agent (DEVIN_ORCH_AGENT_CLI if omitted)"
+    )
     workspace: Optional[str] = Field(
         None, max_length=200, description="Project directory below DEVIN_ORCH_WORKSPACE_ROOT"
     )
@@ -181,6 +190,14 @@ class AgentStateResponse(BaseModel):
     last_decision: Optional[ControllerDecision] = None
     devin_session_id: Optional[str] = None
     pending_approval: Optional[str] = None
+    agent_cli: str = "devin"
+    # Resumable session id of whichever CLI runs this agent (same value as the
+    # legacy devin_session_id field).
+    cli_session_id: Optional[str] = None
+    # Question the controller escalated to a human; cleared by human input.
+    attention: Optional[str] = None
+    attempt_count: int = 0
+    retry_count: int = 0
     kind: str = "pipeline"
     model: Optional[str] = None
     started_at: Optional[float] = None
@@ -199,6 +216,9 @@ class SessionResponse(BaseModel):
     workspace: Optional[str] = None
     pipeline: list[str] = Field(default_factory=list)
     stage_index: int = 0
+    agent_cli: str = "devin"
+    current_stage: Optional[str] = None
+    controller_error: Optional[str] = None
 
 
 class SessionSummary(BaseModel):
@@ -222,6 +242,11 @@ class SessionSummary(BaseModel):
     workspace: Optional[str] = None
     pipeline: list[str] = Field(default_factory=list)
     stage_index: int = 0
+    agent_cli: Optional[str] = None
+    current_stage: Optional[str] = None
+    needs_attention: bool = False
+    # running | needs_attention | stopped | done | error
+    status: str = "stopped"
 
 
 class Event(BaseModel):

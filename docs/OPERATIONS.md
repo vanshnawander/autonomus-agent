@@ -5,12 +5,13 @@
 ~~~bash
 conda env list
 conda run -n research-agents python --version
-devin models list
+devin models list          # or: opencode models / codex --version / claude --version
+curl -fsS http://127.0.0.1:8765/agent-clis   # after starting the API: installed CLI plugins
 curl -fsS 'http://127.0.0.1:8080/search?q=orchestrator&format=json'
 conda run -n research-agents python -m pip install -r requirements.txt
 ~~~
 
-Confirm GLM-5.2 appears in Devin. Never use base Conda, system Python, or bare pip.
+Confirm the default CLI (`DEVIN_ORCH_AGENT_CLI`, default devin) is authenticated and its model is available to your account. See docs/AGENT_PLUGINS.md for per-CLI settings. Never use base Conda, system Python, or bare pip.
 
 ## Configure
 
@@ -23,9 +24,9 @@ Set credentials only in private .env; never put them in a brief, API payload, fe
 ~~~dotenv
 OPENROUTER_API_KEY=sk-or-v1-REPLACE_ME
 DEVIN_ORCH_LLM_BASE_URL=https://openrouter.ai/api/v1
-DEVIN_ORCH_LLM_MODEL=stealth/ox-alpha
+DEVIN_ORCH_LLM_MODEL=z-ai/glm-5.3-flash
 DEVIN_ORCH_LLM_MAX_TOKENS=0
-DEVIN_ORCH_DEVIN_MODEL=glm-5.2
+DEVIN_ORCH_DEVIN_MODEL=swe-2-high
 DEVIN_ORCH_DEVIN_EXTRA_ARGS=--respect-workspace-trust false
 DEVIN_ORCH_EXPORT_TRACES=true
 DEVIN_ORCH_PYTHON=/absolute/path/to/envs/research-agents/bin/python
@@ -178,3 +179,25 @@ conda run -n research-agents python -m pip install PACKAGE
 ~~~
 
 Pin and log the installed version.
+
+
+## Task ownership and recovery
+
+Use one implementation worker per experiment workspace. Resume that worker with its
+validated Devin session ID for revisions; do not create a new named repair agent for
+every failure. Independent reviewers inspect a fixed change set and do not edit
+implementation files. A completed pipeline records stage completion; current auxiliary
+tasks remain visible separately and their histories are retained.
+
+The portal controller defaults to `z-ai/glm-5.3-flash`; Devin workers default to
+`swe-2-high`. Health reports controller errors separately from HTTP availability.
+Permanent provider failures pause control and require correcting configuration and
+restarting the backend. Preserve the worker session ID and resume the same task.
+Terminal line submission uses carriage return, as required by the Devin TUI.
+
+For grounded OCR, the active implementation owner is `integration-repair-swe2`
+(existing historical ID, retained for continuity). Acceptance order: grammar and
+token mapping; multimodal corruption forward; checkpointed train/inference;
+independent code review; Ada tiny overfit and image-sensitivity validation; then
+scientific pilots. Previous numbered fix agents are historical attempts, not extra
+current workers. Do not interpret unit tests or Ada preflight as research results.

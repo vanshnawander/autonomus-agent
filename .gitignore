@@ -1,15 +1,48 @@
-runs/
-.devin
-*.zip
+# --- Secrets and private config (never commit) ---
 .env
+.env.*
+!.env.example
 servers.json
+servers*.json
+!servers.example.json
 servers
 server's
+*.pem
+*.key
+id_rsa*
+id_ed25519*
+
+# --- Research data, run outputs, and logs ---
+runs/
+logs/
+ideas/
+*.log
+*.out
+
+# --- Private notes and agent session dumps ---
 spec.md
 session-ses*.md
-__pycache__
-*.out
-logs/
-*.orig 
+.devin/
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+.venv/
+venv/
+
+# --- Dashboard build ---
+node_modules/
+dashboard/dist/
+
+# --- Patch leftovers, archives, editor/OS files ---
+*.orig
 *.rej
-ideas/
+*.zip
+*.swp
+*~
+.DS_Store
+.idea/

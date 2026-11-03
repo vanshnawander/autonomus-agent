@@ -2,7 +2,7 @@
 
 ## System Boundary
 
-The service coordinates Devin CLI sessions through pseudo-terminals. Each role receives a project-local brief and writes durable artifacts. The controller observes terminal state and returns one structured action; the safety gate decides whether it may execute.
+The service coordinates CLI coding agents (Devin, OpenCode, Codex, Claude Code, or a plugin) through pseudo-terminals. Each role receives a project-local brief and writes durable artifacts. The controller observes terminal state and returns one structured action; the safety gate decides whether it may execute.
 
 ~~~text
 Dashboard / REST API
@@ -14,7 +14,7 @@ FastAPI -> SessionStore -> Orchestrator control loop
                       OpenRouter       SafetyGate
                       controller           |
                               \           /
-                               Devin PTY session
+                             agent CLI PTY session
                                       |
                          workspace + recorder
 ~~~
@@ -71,15 +71,13 @@ Terminal text, repository files, and web pages are untrusted input. The controll
 
 High-risk gating is immutable. Approval items and resolutions are session-scoped. Approval executes the inspected decision exactly once; denial dismisses the terminal confirmation.
 
-## Devin PTY
+## Agent CLI PTYs
 
-orchestrator/pty_manager.py starts one Devin process per attempt. Defaults select glm-5.2. The launcher derives Devin permissions from the session: `auto` for manual sessions and `accept-edits` for autonomous sessions. Generic transport flags remain:
+orchestrator/pty_manager.py starts one CLI process per attempt, directly from an argv (never through a shell). Each agent's CLI is chosen per agent, then per session, then by `DEVIN_ORCH_AGENT_CLI`. The adapter plugin in orchestrator/agents/ (see docs/AGENT_PLUGINS.md) builds the launch flags, cleans the child environment, answers known first-run dialogs, recognises the CLI's approval menu and busy state, and finds the resumable session id.
 
-~~~text
---respect-workspace-trust false
-~~~
+Devin derives permissions from the session: `auto` for manual sessions and `smart` for autonomous sessions. Claude Code uses `acceptEdits`, Codex uses `workspace-write` with `on-request` approvals, and OpenCode receives an ask-for-shell policy. Shell commands therefore reach the controller as approval menus.
 
-The outer safety gate remains authoritative. Optional --export traces use a distinct path for every attempt. PTYs are keyed by project and agent.
+The outer safety gate remains authoritative. Trace copies use a distinct path for every attempt. PTYs are keyed by project and agent.
 
 ## Persistence
 
@@ -88,7 +86,8 @@ logs/<session-id>/
   manifest.json
   events.jsonl
   handoffs.jsonl
-  traces/<agent-id>/<attempt>.json
+  traces/<agent-id>/<attempt>.json            # Devin --export
+  traces/<agent-id>/<attempt>.<cli>.json      # other CLIs' transcripts
   agents/<agent-id>/sessions.jsonl
   agents/<agent-id>/sessions/<attempt>/
     raw.pty.log
@@ -125,14 +124,17 @@ FastAPI serves dashboard/dist/; build it before server startup. Vite development
 
 | Setting | Default | Purpose |
 |---|---|---|
+| DEVIN_ORCH_AGENT_CLI | devin | Default CLI: devin, opencode, codex, claude-code |
+| DEVIN_ORCH_<CLI>_COMMAND / _MODEL / _EXTRA_ARGS | per CLI | Per-CLI executable, model, extra flags |
+| DEVIN_ORCH_AGENT_PLUGINS | unset | Extra adapters as module:Class list |
 | DEVIN_ORCH_DEVIN_COMMAND | devin | Devin executable |
-| DEVIN_ORCH_DEVIN_MODEL | glm-5.2 | Role model |
+| DEVIN_ORCH_DEVIN_MODEL | swe-2-high | Role model |
 | DEVIN_ORCH_DEVIN_EXTRA_ARGS | --respect-workspace-trust false | Transport flags; session mode selects permissions |
 | DEVIN_ORCH_EXPORT_TRACES | true | Devin traces |
 | DEVIN_ORCH_LLM_BASE_URL | OpenRouter | Controller endpoint |
 | OPENROUTER_API_KEY | unset | Default credential |
 | DEVIN_ORCH_LLM_API_KEY | OpenRouter key | Credential override |
-| DEVIN_ORCH_LLM_MODEL | stealth/ox-alpha | Controller model |
+| DEVIN_ORCH_LLM_MODEL | z-ai/glm-5.3-flash | Controller model |
 | DEVIN_ORCH_LLM_MAX_TOKENS | 0 | Provider default |
 | DEVIN_ORCH_WORKSPACE_ROOT | repository runs/ | Workspace root |
 | DEVIN_ORCH_LOG_DIR | repository logs/ | Recorder root |

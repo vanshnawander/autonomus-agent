@@ -130,6 +130,7 @@ class SafetyGate:
         decision: ControllerDecision,
         terminal_context: str = "",
         allow_auto_approve: Optional[bool] = None,
+        screen_excerpt: str = "",
     ) -> tuple[bool, Optional[ApprovalItem]]:
         """Decide whether the control loop may execute `decision` right now.
 
@@ -140,16 +141,23 @@ class SafetyGate:
         # A bare `y`/Enter can approve a dangerous command shown only in the
         # terminal. Classify both the proposed keystroke and the prompt context.
         risk = classify_risk("\n".join(part for part in (terminal_context[-2000:], text or "") if part), decision)
+        # Describe what the keystroke would actually do. A bare Enter on a CLI
+        # approval menu used to render as "<action>", leaving the human
+        # approver blind to the command being confirmed.
+        if text:
+            proposed = text[:200]
+        else:
+            key = f" {decision.key}" if decision.key else ""
+            proposed = f"<{decision.action.value}{key}>"
+        if screen_excerpt:
+            proposed += f"\n\nTerminal shows:\n{screen_excerpt[-800:]}"
 
         if risk == Risk.high:
             item = ApprovalItem(
                 id=str(uuid.uuid4()),
                 session_id=session_id,
                 agent_id=agent_id,
-                question=(
-                    f"Agent {agent_id} wants to send high-risk input: "
-                    f"{(text or '<action>')[:200]}"
-                ),
+                question=f"Agent {agent_id} wants to send high-risk input: {proposed}",
                 risk=risk,
                 decision=decision,
             )
@@ -165,10 +173,7 @@ class SafetyGate:
                 id=str(uuid.uuid4()),
                 session_id=session_id,
                 agent_id=agent_id,
-                question=(
-                    f"Agent {agent_id} wants to send medium-risk input: "
-                    f"{(text or '<action>')[:200]}"
-                ),
+                question=f"Agent {agent_id} wants to send medium-risk input: {proposed}",
                 risk=risk,
                 decision=decision,
             )

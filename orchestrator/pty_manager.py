@@ -1,6 +1,6 @@
 """PTY Session Manager.
 
-Each agent runs as a `devin` CLI process inside a real pseudo-terminal (via
+Each agent runs as a CLI agent process (Devin, OpenCode, Codex, Claude Code, ...) inside a real pseudo-terminal (via
 pexpect). This module owns the low-level terminal manipulation:
 
     start / stop / restart / resume
@@ -13,11 +13,9 @@ LLM controller sit on top of it.
 from __future__ import annotations
 
 import os
-import re
 import shlex
 import time
 from dataclasses import dataclass, field
-from pathlib import Path
 from threading import Lock
 from typing import Optional
 
@@ -40,6 +38,8 @@ class PTYSession:
     screen: TerminalScreen = field(init=False, repr=False)
     last_output_at: float = field(default_factory=time.time)
     started_at: Optional[float] = field(default=None)
+    # Environment for the child; None inherits the orchestrator's environment.
+    env: Optional[dict[str, str]] = field(default=None, repr=False)
     # Devin session id, harvested from the terminal once Devin prints it.
     devin_session_id: Optional[str] = None
     _lock: Lock = field(default_factory=Lock, repr=False)
@@ -52,20 +52,28 @@ class PTYSession:
     # ------------------------------------------------------------------ lifecycle
 
     def start(self, extra_args: Optional[list[str]] = None) -> None:
-        """Spawn the agent command inside a PTY."""
+        """Spawn the agent command inside a PTY.
+
+        ``command`` is a POSIX shell-quoted argv string (see
+        ``PTYManager.build_command``); it is split here and executed directly,
+        never through a shell.
+        """
         with self._lock:
             if self.child is not None and self.child.isalive():
                 raise RuntimeError(f"Agent {self.agent_id} already running")
-            cmd = self.command
+            argv = shlex.split(self.command)
             if extra_args:
-                cmd = cmd + " " + " ".join(shlex.quote(a) for a in extra_args)
-            child_env = os.environ.copy()
+                argv += list(extra_args)
+            if not argv:
+                raise RuntimeError(f"Agent {self.agent_id} has an empty command")
+            child_env = dict(self.env) if self.env is not None else os.environ.copy()
             # Windsurf injects ACP_BACKEND for its embedded host. A standalone
             # `devin` child mis-detects ACP mode when this leaks into its env and
             # refuses to use normal CLI credentials.
             child_env.pop("ACP_BACKEND", None)
             self.child = pexpect.spawn(
-                cmd,
+                argv[0],
+                argv[1:],
                 cwd=self.cwd,
                 env=child_env,
                 encoding="utf-8",
@@ -123,7 +131,10 @@ class PTYSession:
     def send_line(self, text: str) -> None:
         with self._lock:
             if self.child:
-                self.child.sendline(text)
+                # TUI Enter is CR. pexpect.sendline emits LF, which Devin can
+                # treat as a newline in its composer without submitting.
+                self.child.send(text)
+                self.child.send("\r")
 
     def send_enter(self) -> None:
         with self._lock:
@@ -221,18 +232,9 @@ class PTYSession:
         """Devin prints a session id early on; try to grab it once."""
         if self.devin_session_id:
             return
-        # Accept only an explicit Devin/session-id marker. Bare `Session:`
-        # also appears for nested shell tools and is not a resumable Devin ID.
-        marker = re.compile(
-            r"^\s*(?:devin\s+session(?:\s+id)?|session\s+id)\s*:\s*"
-            r"([A-Za-z0-9][A-Za-z0-9_-]*)\s*$",
-            re.IGNORECASE,
-        )
-        for line in out.splitlines():
-            match = marker.match(line)
-            if match:
-                self.devin_session_id = match.group(1)
-                return
+        from .agents.devin import DevinAdapter
+
+        self.devin_session_id = DevinAdapter().extract_session_id(out)
 
     def is_quiet(self, quiet_ms: Optional[int] = None) -> bool:
         q = quiet_ms if quiet_ms is not None else settings.quiet_ms
@@ -259,53 +261,30 @@ class PTYManager:
         export_path: Optional[str] = None,
         permission_mode: Optional[str] = None,
         model: Optional[str] = None,
+        cli: Optional[str] = None,
+        cwd: Optional[str] = None,
+        approval_mode: str = "manual",
+        new_session_id: Optional[str] = None,
     ) -> str:
-        """Construct the `devin` invocation for a role.
-
-        Fresh start:  devin [extra args] [--export <dir>] -- "<full prompt>"
-        Resume:       devin -r <id> [extra args] [--export <dir>] -- "<full prompt>"
+        """Construct the shell-quoted launch command for a role.
 
         ``role_system_prompt`` should be the FULLY COMPOSED prompt (base + role +
-        any extra runtime instruction). Use ``Role.full_prompt(extra_prompt)`` or
-        ``prompts.build_agent_prompt(role_key, extra_prompt)`` to produce it.
-
-        DEVIN_ORCH_DEVIN_EXTRA_ARGS contains only transport flags; the session approval mode selects Devin permissions so
-        commands and edits remain visible in the PTY. The controller terminates a
-        role after its validated stage marker, so interactive mode does not leave
-        completed sessions running indefinitely.
-
-        When settings.devin_export_traces is True and export_path is given, we
-        append `--export <file>` so the full conversation transcript lands next
-        to the orchestrator's own PTY/screen/audit recordings.
+        any extra runtime instruction). The CLI adapter named by ``cli`` (default
+        DEVIN_ORCH_AGENT_CLI) owns the flags; see orchestrator/agents/.
         """
-        parts = [settings.devin_command]
-        if resume_session_id:
-            parts += ["-r", resume_session_id]
-        selected_model = model or settings.devin_model
-        if selected_model:
-            parts += ["--model", selected_model]
-        extra = shlex.split(settings.devin_extra_args.strip())
-        # The orchestration mode owns Devin approval behavior. Strip legacy
-        # permission and print flags so environment settings cannot bypass the controller.
-        cleaned_extra: list[str] = []
-        skip_next = False
-        for arg in extra:
-            if skip_next:
-                skip_next = False
-                continue
-            if arg == "--permission-mode":
-                skip_next = True
-                continue
-            if arg.startswith("--permission-mode=") or arg in {"-p", "--print"}:
-                continue
-            cleaned_extra.append(arg)
-        parts += ["--permission-mode", permission_mode or "auto"]
-        parts += cleaned_extra
-        if settings.devin_export_traces and export_path:
-            Path(export_path).parent.mkdir(parents=True, exist_ok=True)
-            parts += ["--export", export_path]
-        parts += ["--", role_system_prompt]
-        return " ".join(shlex.quote(p) if " " in p or any(c in p for c in '"\'') else p for p in parts)
+        from .agents import LaunchContext, get_adapter
+
+        argv = get_adapter(cli).build_argv(LaunchContext(
+            prompt=role_system_prompt,
+            cwd=cwd,
+            approval_mode=approval_mode,
+            model=model,
+            resume_session_id=resume_session_id,
+            export_path=export_path,
+            new_session_id=new_session_id,
+            permission_mode=permission_mode,
+        ))
+        return shlex.join(argv)
 
     # ------------------------------------------------------------------ registry
 
@@ -317,6 +296,7 @@ class PTYManager:
         cols: Optional[int] = None,
         rows: Optional[int] = None,
         project_id: Optional[str] = None,
+        env: Optional[dict[str, str]] = None,
     ) -> PTYSession:
         key = self._key(agent_id, project_id)
         with self._lock:
@@ -328,6 +308,7 @@ class PTYManager:
                 cwd=cwd,
                 cols=cols or settings.terminal_cols,
                 rows=rows or settings.terminal_rows,
+                env=env,
             )
             self._sessions[key] = sess
             return sess

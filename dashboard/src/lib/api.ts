@@ -1,5 +1,6 @@
 // Thin fetch wrapper for the orchestrator REST API.
 import type {
+  AgentClisResponse,
   ApprovalItem,
   AgentAttempt,
   AuditEntry,
@@ -8,6 +9,7 @@ import type {
   Event,
   FeedbackEntry,
   HandoffRecord,
+  FeedbackMode,
   HealthResponse,
   PreflightResponse,
   RawLogResponse,
@@ -29,6 +31,45 @@ const BASE: string =
   (globalThis as unknown as { __API_BASE__?: string }).__API_BASE__ ??
   "";
 
+/** Error thrown for non-2xx responses. `message` is the human-readable
+ * FastAPI `detail` when the server sent one. */
+export class ApiError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
+function detailFrom(text: string): string {
+  try {
+    const body = JSON.parse(text) as { detail?: unknown };
+    if (typeof body.detail === "string") return body.detail;
+    if (Array.isArray(body.detail)) {
+      return body.detail
+        .map((item: { msg?: string; loc?: unknown[] }) =>
+          item?.msg ? `${(item.loc ?? []).slice(1).join(".")}: ${item.msg}` : JSON.stringify(item),
+        )
+        .join("; ");
+    }
+  } catch {
+    /* not JSON */
+  }
+  return text;
+}
+
+/** Human-readable message for any thrown value. */
+export function errorMessage(e: unknown): string {
+  if (e instanceof ApiError) return e.message || `Request failed (${e.status})`;
+  if (e instanceof Error) return e.message;
+  return String(e);
+}
+
+export function isNotFound(e: unknown): boolean {
+  return e instanceof ApiError && e.status === 404;
+}
+
 async function api<T>(path: string, opts: RequestInit = {}): Promise<T> {
   const res = await fetch(BASE + path, {
     headers: { "Content-Type": "application/json" },
@@ -36,7 +77,7 @@ async function api<T>(path: string, opts: RequestInit = {}): Promise<T> {
   });
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`${res.status} ${text}`);
+    throw new ApiError(res.status, detailFrom(text) || res.statusText);
   }
   return res.status === 204 ? (null as T) : ((await res.json()) as T);
 }
@@ -44,7 +85,7 @@ async function api<T>(path: string, opts: RequestInit = {}): Promise<T> {
 export const apiClient = {
   health: () => api<HealthResponse>("/health"),
   preflight: () => api<PreflightResponse>("/preflight"),
-  listSessions: () => api<SessionResponse[]>("/sessions"),
+  agentClis: () => api<AgentClisResponse>("/agent-clis"),
   listAllSessions: () => api<SessionSummary[]>("/sessions/all"),
   getSession: (sid: string) =>
     api<SessionResponse>(`/sessions/${encodeURIComponent(sid)}`),
@@ -66,7 +107,7 @@ export const apiClient = {
     sid: string,
     message: string,
     target_agent: string,
-    mode: "immediate" | "context" | "interrupt",
+    mode: FeedbackMode,
   ) =>
     api<{ target_agent: string; mode: string }>(
       `/sessions/${encodeURIComponent(sid)}/feedback`,
@@ -114,6 +155,8 @@ export const apiClient = {
     ),
   listHandoffs: (sid: string) =>
     api<HandoffRecord[]>(`/logs/${encodeURIComponent(sid)}/handoffs`),
+  recordedEvents: (sid: string, tail = 200) =>
+    api<Event[]>(`/logs/${encodeURIComponent(sid)}/events?tail=${tail}`),
 
   // --- Recorded log artifacts (per agent / attempt) ---
   listRecordedSessions: () => api<RecordedSession[]>("/logs"),

@@ -9,20 +9,24 @@ a background thread that implements the spec's key loop:
 It also handles:
   - handoff detection (AGENT_DONE / APPROVE / REJECT / AGENT_QUESTION markers)
   - feedback injection (immediate / context / interrupt)
-  - session restart / resume (stop agent, respawn with `devin -r <id>`)
+  - session restart / resume (stop agent, respawn resuming its CLI session)
+  - CLI specifics (launch flags, first-run dialogs, approval menus, session
+    ids) via the adapter plugins in orchestrator/agents/
   - approval gating via the safety layer
   - escalating to a human after too many low-confidence waits
 """
 from __future__ import annotations
 
-import json
 import logging
+import os
 import re
 import threading
 import time
 from pathlib import Path
 from typing import Optional
 
+from .agents import LaunchContext, get_adapter
+from .agents.devin import DevinAdapter
 from .config import settings
 from .idle_detector import IdleDetector
 from .llm_controller import make_controller
@@ -40,14 +44,23 @@ from .schemas import (
     Risk,
 )
 from .session_store import Session, SessionStore
+from .terminal_screen import sanitize_ansi
 
 log = logging.getLogger(__name__)
 
-# Markers agents print to signal the orchestrator.
-_DONE_RE = re.compile(r"^\s*AGENT_DONE\s+([A-Za-z0-9_-]+)\s*$", re.IGNORECASE | re.MULTILINE)
-_QUESTION_RE = re.compile(r"^\s*AGENT_QUESTION:\s*(.+?)\s*$", re.IGNORECASE | re.MULTILINE)
-_APPROVE_RE = re.compile(r"^\s*APPROVE\s+([A-Za-z0-9_-]+)\s*$", re.IGNORECASE | re.MULTILINE)
-_REJECT_RE = re.compile(r"^\s*REJECT\s+([A-Za-z0-9_-]+):\s*(.+?)\s*$", re.IGNORECASE | re.MULTILINE)
+# Markers agents print to signal the orchestrator. TUIs decorate transcript
+# lines (Claude Code `●`/`⏺`, Codex `•`, OpenCode `┃` borders), so a marker may
+# follow such a prefix. Prompt-echo prefixes (`>`, `❯`, `›`) are deliberately
+# not accepted so a quoted instruction can never advance the pipeline.
+_DECOR = r"^[ \t●⏺•·┃│▌▎]*"
+_TRAIL = r"[ \t┃│]*$"
+_DONE_RE = re.compile(_DECOR + r"AGENT_DONE\s+([A-Za-z0-9_-]+)" + _TRAIL, re.IGNORECASE | re.MULTILINE)
+_QUESTION_RE = re.compile(_DECOR + r"AGENT_QUESTION:\s*(.+?)" + _TRAIL, re.IGNORECASE | re.MULTILINE)
+_APPROVE_RE = re.compile(_DECOR + r"APPROVE\s+([A-Za-z0-9_-]+)" + _TRAIL, re.IGNORECASE | re.MULTILINE)
+_REJECT_RE = re.compile(_DECOR + r"REJECT\s+([A-Za-z0-9_-]+):\s*(.+?)" + _TRAIL, re.IGNORECASE | re.MULTILINE)
+
+# Minimum seconds between session-id discovery scans (subprocess/filesystem).
+_DISCOVERY_INTERVAL_S = 10.0
 
 
 class Orchestrator:
@@ -68,6 +81,8 @@ class Orchestrator:
         self._loops: dict[tuple[str, str], threading.Thread] = {}
         self._stop_flags: dict[tuple[str, str], threading.Event] = {}
         self._idle: dict[tuple[str, str], IdleDetector] = {}
+        self._input_versions: dict[tuple[str, str], int] = {}
+        self._last_question: dict[tuple[str, str], str] = {}
         self._lock = threading.Lock()
 
     @staticmethod
@@ -108,13 +123,18 @@ class Orchestrator:
         path = sdir / "traces" / agent_id / f"{attempt:04d}.json" if sdir else None
         if path is None or not path.exists():
             return None
+        return DevinAdapter.session_id_from_trace(path)
+
+    @staticmethod
+    def _trusted_workspace(cwd: Optional[str]) -> bool:
+        """Only orchestrator-created workspaces may be trusted automatically."""
+        if not cwd:
+            return False
         try:
-            value = json.loads(path.read_text(encoding="utf-8")).get("session_id")
-        except (OSError, json.JSONDecodeError, AttributeError):
-            return None
-        if isinstance(value, str) and value and all(c.isalnum() or c in "-_" for c in value):
-            return value
-        return None
+            Path(cwd).resolve().relative_to(settings.workspace_root.resolve())
+        except ValueError:
+            return False
+        return True
 
     # ------------------------------------------------------------------ spawn
 
@@ -145,6 +165,7 @@ class Orchestrator:
         if extra_prompt:
             runtime_parts.append(f"Current-stage instruction:\n{extra_prompt}")
         repo_root = Path(__file__).resolve().parent.parent
+        adapter = get_adapter(session.cli_for(agent_id))
         if role.key in {"literature-survey", "critic", "reviewer"}:
             search_helper = repo_root / "orchestrator" / "searxng.py"
             runtime_parts.append(
@@ -179,10 +200,16 @@ class Orchestrator:
             return
 
         # Use an explicit command override if the agent spec provided one;
-        # otherwise build the default `devin` invocation from the role prompt.
+        # otherwise ask the agent's CLI adapter to build the invocation.
+        new_session_id = None
         if mem.command:
             command = mem.command
         else:
+            if not adapter.is_installed():
+                raise RuntimeError(
+                    f"{adapter.display_name} is not installed or not on PATH "
+                    f"(command {adapter.command()!r}); install it or set {adapter.env_prefix}_COMMAND"
+                )
             export_path = None
             if self.recorder is not None:
                 sdir = self.recorder.session_dir(session.session_id)
@@ -190,22 +217,29 @@ class Orchestrator:
                     export_path = str(
                         sdir / "traces" / agent_id / f"{mem.attempt_count + 1:04d}.json"
                     )
+            if not resume_session_id:
+                new_session_id = adapter.new_session_id()
             command = PTYManager.build_command(
                 role.full_prompt(composed_prompt),
                 resume_session_id=resume_session_id,
                 export_path=export_path,
-                permission_mode=(
-                    "accept-edits"
-                    if session.approval_mode.value == "autonomous"
-                    else "auto"
-                ),
                 model=mem.model,
+                cli=adapter.name,
+                cwd=mem.cwd,
+                approval_mode=session.approval_mode.value,
+                new_session_id=new_session_id,
             )
-        sess = self.pty.create(agent_id, command, cwd=mem.cwd, project_id=session.session_id)
+        launch_ctx = LaunchContext(prompt="", cwd=mem.cwd, approval_mode=session.approval_mode.value)
+        env = adapter.prepare_env(os.environ.copy(), launch_ctx)
+        sess = self.pty.create(agent_id, command, cwd=mem.cwd, project_id=session.session_id, env=env)
         sess.start()
         if self.recorder is not None:
             self.recorder.register_agent(session.session_id, agent_id, role.key)
-        session.set_status(agent_id, AgentStatus.running)
+        session.mark_started(agent_id)
+        if new_session_id:
+            # The CLI accepted an orchestrator-assigned id, so it is resumable
+            # from the first byte (Claude Code --session-id).
+            session.set_devin_session_id(agent_id, new_session_id)
         if mem.kind == "pipeline":
             session.active_agent = agent_id
         session.persist_runtime()
@@ -220,6 +254,8 @@ class Orchestrator:
                 "attempt": mem.attempt_count,
                 "recording_attempt": arec.attempt_id if arec else None,
                 "devin_model": mem.model or settings.devin_model,
+                "cli": adapter.name,
+                "model": mem.model or adapter.default_model(),
                 "kind": mem.kind,
             },
         ))
@@ -242,19 +278,20 @@ class Orchestrator:
     def launch_auxiliary_agent(
         self, session: Session, agent_id: str, role: str, prompt: str,
         cwd: Optional[str] = None, model: Optional[str] = None,
-        resume_session_id: Optional[str] = None,
+        resume_session_id: Optional[str] = None, cli: Optional[str] = None,
     ) -> None:
         if session.get_agent(agent_id) is not None:
             raise RuntimeError(f"Agent {agent_id} already exists in session {session.session_id}")
         get_role(role)
-        mem = session.add_agent(agent_id, role, kind="auxiliary", model=model)
+        mem = session.add_agent(agent_id, role, kind="auxiliary", model=model, cli=cli)
         mem.cwd = cwd or session.workspace
         mem.extra_prompt = prompt
         session.persist_runtime()
         self.start_agent(session, agent_id, resume_session_id=resume_session_id)
         session.emit(Event(
             type="auxiliary_agent_launched", session_id=session.session_id,
-            agent_id=agent_id, data={"role": role, "model": model or settings.devin_model},
+            agent_id=agent_id, data={"role": role, "model": model or settings.devin_model,
+                                     "cli": session.cli_for(agent_id)},
         ))
 
     def pause_agent(self, session: Session, agent_id: str) -> None:
@@ -262,6 +299,8 @@ class Orchestrator:
         if psess is None:
             raise RuntimeError(f"Agent {agent_id} is not running")
         psess.pause()
+        run_key = self._run_key(session.session_id, agent_id)
+        self._input_versions[run_key] = self._input_versions.get(run_key, 0) + 1
         session.set_status(agent_id, AgentStatus.paused)
         session.emit(Event(type="agent_paused", session_id=session.session_id, agent_id=agent_id))
 
@@ -270,7 +309,7 @@ class Orchestrator:
         if psess is None:
             raise RuntimeError(f"Agent {agent_id} is not running")
         psess.resume()
-        session.set_status(agent_id, AgentStatus.running)
+        self._mark_input_progress(session, agent_id)
         session.emit(Event(type="agent_resumed", session_id=session.session_id, agent_id=agent_id))
 
     # ------------------------------------------------------------------ stop / restart
@@ -322,46 +361,48 @@ class Orchestrator:
         """Apply human feedback to an agent in one of three modes."""
         sess = self.pty.get(agent_id, session.session_id)
         arec = self._arec(session.session_id, agent_id)
-        if mode == FeedbackMode.immediate:
-            if sess and sess.is_alive():
-                sess.send_line(message)
-            else:
-                # Queue it for when the agent is running.
-                session.add_feedback(agent_id, message, mode)
-            session.emit(Event(
-                type="feedback_injected",
-                session_id=session.session_id,
-                agent_id=agent_id,
-                data={"mode": mode.value, "message": message},
-            ))
-            if arec:
-                arec.record_feedback(mode.value, message)
-                arec.record_action("send_line", text=message, source="feedback")
-        elif mode == FeedbackMode.interrupt:
-            if sess and sess.is_alive():
+        live = sess is not None and sess.is_alive()
+        if mode == FeedbackMode.context or not live:
+            session.add_feedback(agent_id, message, mode)
+            event_type = "feedback_queued"
+        else:
+            self._prepare_manual_input(session, agent_id, sess)
+            if mode == FeedbackMode.interrupt:
                 sess.send_ctrl_c()
                 time.sleep(0.3)
-                sess.send_line(message)
-            session.emit(Event(
-                type="feedback_interrupt",
-                session_id=session.session_id,
-                agent_id=agent_id,
-                data={"message": message},
-            ))
+            sess.send_line(message)
+            self._mark_input_progress(session, agent_id)
+            event_type = "feedback_interrupt" if mode == FeedbackMode.interrupt else "feedback_injected"
             if arec:
-                arec.record_feedback(mode.value, message)
-                arec.record_action("send_ctrl_c", source="feedback")
+                if mode == FeedbackMode.interrupt:
+                    arec.record_action("send_ctrl_c", source="feedback")
                 arec.record_action("send_line", text=message, source="feedback")
-        else:  # context
-            session.add_feedback(agent_id, message, mode)
-            session.emit(Event(
-                type="feedback_queued",
-                session_id=session.session_id,
-                agent_id=agent_id,
-                data={"message": message},
-            ))
-            if arec:
-                arec.record_feedback(mode.value, message)
+        session.emit(Event(
+            type=event_type, session_id=session.session_id, agent_id=agent_id,
+            data={"mode": mode.value, "message": message, "delivered": live and mode != FeedbackMode.context},
+        ))
+        if arec:
+            arec.record_feedback(mode.value, message)
+
+    def _prepare_manual_input(self, session: Session, agent_id: str, sess: PTYSession) -> None:
+        mem = session.get_agent(agent_id)
+        if mem and mem.pending_approval_question:
+            raise RuntimeError("Resolve the pending approval before sending terminal input")
+        if mem and mem.status == AgentStatus.paused:
+            sess.resume()
+
+    def _mark_input_progress(self, session: Session, agent_id: str) -> None:
+        run_key = self._run_key(session.session_id, agent_id)
+        self._input_versions[run_key] = self._input_versions.get(run_key, 0) + 1
+        mem = session.get_agent(agent_id)
+        if mem:
+            mem.low_confidence_streak = 0
+            mem.idle_wait_streak = 0
+            mem.attention = None
+        idle = self._idle.get(self._run_key(session.session_id, agent_id))
+        if idle:
+            idle.reset()
+        session.set_status(agent_id, AgentStatus.running)
 
     # ------------------------------------------------------------------ force input
 
@@ -380,7 +421,9 @@ class Orchestrator:
         sess = self.pty.get(agent_id, session.session_id)
         if not sess or not sess.is_alive():
             raise RuntimeError(f"Agent {agent_id} is not running")
+        self._prepare_manual_input(session, agent_id, sess)
         self._apply_action(sess, action, text, key)
+        self._mark_input_progress(session, agent_id)
         session.emit(Event(
             type="manual_input",
             session_id=session.session_id,
@@ -399,6 +442,10 @@ class Orchestrator:
         mem = session.get_agent(agent_id)
         if sess is None or mem is None:
             return
+        adapter = get_adapter(session.cli_for(agent_id))
+        trusted_workspace = self._trusted_workspace(mem.cwd)
+        last_startup_action_at = 0.0
+        last_discovery_at = time.time()
 
         while not stop_evt.is_set():
             # 0. Per-agent hard timeout check.
@@ -417,30 +464,30 @@ class Orchestrator:
             # 1. Drain whatever output is available.
             out = sess.read_available()
             visible_now = sess.capture_visible_screen()
-            confirmation_menu_active = (
-                "Approve once" in visible_now
-                and "select" in visible_now
-                and "confirm" in visible_now
-            )
+            confirmation_menu_active = adapter.menu_state(visible_now).active
             if out:
                 idle.update(sess)
                 # Persist every raw byte the terminal emitted.
                 arec = self._arec(session.session_id, agent_id)
                 if arec:
                     arec.record_raw(out)
-                # Harvest devin session id from the PTY.
+                # Harvest the resumable CLI session id from the PTY.
                 if not mem.devin_session_id:
-                    trace_attempt = int(arec.attempt_id) if arec is not None else mem.attempt_count
-                    trace_id = self._trace_session_id(session.session_id, agent_id, trace_attempt)
-                    captured_id = trace_id or sess.devin_session_id
+                    captured_id = None
+                    if adapter.name == "devin":
+                        trace_attempt = int(arec.attempt_id) if arec is not None else mem.attempt_count
+                        captured_id = self._trace_session_id(session.session_id, agent_id, trace_attempt)
+                        captured_id = captured_id or sess.devin_session_id
+                    else:
+                        captured_id = adapter.extract_session_id(sanitize_ansi(out))
                     if captured_id:
-                        session.set_devin_session_id(agent_id, captured_id)
+                        self._record_cli_session_id(session, agent_id, adapter.name, captured_id)
                 # Emit a terminal_output event (throttled by the loop cadence).
                 session.emit(Event(
                     type="terminal_output",
                     session_id=session.session_id,
                     agent_id=agent_id,
-                    data=out[-512:],  # keep events small
+                    data=sanitize_ansi(out)[-512:],  # keep events small and readable
                 ))
                 # Check for handoff/done markers in the recent output.
                 self._check_markers(session, agent_id, sess, idle)
@@ -466,11 +513,20 @@ class Orchestrator:
                     # Stop the dead PTY, then restart (resume if we have a session id).
                     self.pty.remove(agent_id, force=True, project_id=session.session_id)
                     time.sleep(0.5)
-                    resume_id = mem.devin_session_id
-                    self.start_agent(
-                        session, agent_id,
-                        resume_session_id=resume_id if resume_id else None,
-                    )
+                    resume_id = mem.devin_session_id if adapter.capabilities.resume else None
+                    try:
+                        self.start_agent(
+                            session, agent_id,
+                            resume_session_id=resume_id if resume_id else None,
+                        )
+                    except Exception as exc:  # noqa: BLE001 - surface, don't kill silently
+                        log.exception("Retry of agent %s failed", agent_id)
+                        session.set_status(agent_id, AgentStatus.error)
+                        session.emit(Event(
+                            type="agent_died", session_id=session.session_id, agent_id=agent_id,
+                            data={"retries_exhausted": False, "error": str(exc)[:500]},
+                        ))
+                        self._finalize_agent_summary(session, agent_id, status="error")
                     return  # the new start_agent launches its own loop thread
                 session.set_status(agent_id, AgentStatus.error)
                 session.emit(Event(
@@ -482,20 +538,85 @@ class Orchestrator:
                 self._finalize_agent_summary(session, agent_id, status="error")
                 return
 
+            # Paused agents still drain output and detect process exit, but do
+            # not repeatedly call the controller or replay an escalation.
+            if mem.status == AgentStatus.paused:
+                stop_evt.wait(settings.poll_interval_s)
+                continue
+
+            # 2b. Known first-run dialogs (folder trust, self-update prompts) get
+            # deterministic adapter answers; the LLM never sees them. Reached
+            # only on iterations without new output, i.e. a settled screen.
+            startup = adapter.startup_action(visible_now, trusted_workspace)
+            if startup is not None:
+                if time.time() - last_startup_action_at >= 1.0:
+                    for key in startup.keys:
+                        sess.send_text(key)
+                    last_startup_action_at = time.time()
+                    session.emit(Event(
+                        type="adapter_startup_action", session_id=session.session_id,
+                        agent_id=agent_id,
+                        data={"cli": adapter.name, "description": startup.description,
+                              "keys": list(startup.keys)},
+                    ))
+                    arec = self._arec(session.session_id, agent_id)
+                    if arec:
+                        arec.record_action("send_text", text="".join(startup.keys), source="adapter")
+                    idle.reset()
+                stop_evt.wait(settings.poll_interval_s)
+                continue
+
+            # 2c. CLIs that do not print their session id are polled for it.
+            if (
+                not mem.devin_session_id
+                and adapter.name != "devin"
+                and adapter.capabilities.session_id_capture
+                and time.time() - last_discovery_at >= _DISCOVERY_INTERVAL_S
+            ):
+                last_discovery_at = time.time()
+                try:
+                    found = adapter.discover_session_id(mem.cwd, mem.started_at)
+                except Exception:  # noqa: BLE001 - discovery is best-effort
+                    log.exception("Session discovery failed for %s", agent_id)
+                    found = None
+                if found:
+                    self._record_cli_session_id(session, agent_id, adapter.name, found)
+
             # 3. Sample screen stability even when no new bytes arrive. Quiet
             # prompts are stable precisely because read_available() returned empty.
             idle.update(sess)
             # Not idle yet? Short sleep and re-poll.
-            if not confirmation_menu_active and not idle.is_idle(sess):
+            if not confirmation_menu_active and (adapter.busy(visible_now) or not idle.is_idle(sess)):
                 time.sleep(settings.poll_interval_s)
                 continue
 
             # 4. Idle -> ask the controller what to do.
             snapshot = session.snapshot_for_controller(agent_id)
+            snapshot["agent_cli"] = adapter.display_name
+            if adapter.controller_guidance:
+                snapshot["cli_guidance"] = adapter.controller_guidance
             visible = sess.capture_visible_screen()
             recent = sess.recent_output(20)
+            run_key = self._run_key(session.session_id, agent_id)
+            input_version = self._input_versions.get(run_key, 0)
             decision = self.controller.decide(snapshot, visible, recent)
-            session.drain_feedback(agent_id)
+            if stop_evt.is_set():
+                return
+            if self._input_versions.get(run_key, 0) != input_version:
+                # A human acted while the network call was in flight. Its old
+                # terminal snapshot can no longer authorize input or a pause.
+                session.emit(Event(type="controller_decision_discarded",
+                    session_id=session.session_id, agent_id=agent_id,
+                    data={"reason": "manual input or pause changed the terminal"}))
+                continue
+            if not decision.reason.startswith("controller error:"):
+                session.drain_feedback(agent_id)
+            else:
+                session.emit(Event(
+                    type="controller_error", session_id=session.session_id,
+                    agent_id=agent_id, data={"reason": decision.reason,
+                    "retrying": decision.action == ActionType.wait},
+                ))
             session.set_last_decision(agent_id, decision)
             session.emit(Event(
                 type="llm_decision",
@@ -518,6 +639,12 @@ class Orchestrator:
                     )
                 except Exception:
                     log.exception("Failed to record controller turn for %s", agent_id)
+
+            # Controller errors have their own bounded retry budget.
+            if decision.reason.startswith("controller error:") and decision.action == ActionType.wait:
+                stop_evt.wait((decision.duration_ms or 1000) / 1000.0)
+                idle.reset()
+                continue
 
             # 5. Low-confidence escalation.
             if decision.confidence < 0.4 and decision.action == ActionType.wait:
@@ -565,6 +692,7 @@ class Orchestrator:
                     decision,
                     terminal_context=f"{visible}\n{recent}",
                     allow_auto_approve=session.approval_mode.value == "autonomous",
+                    screen_excerpt=adapter.menu_state(visible).excerpt,
                 )
                 if not ok and approval:
                     mem.pending_approval_question = approval.question
@@ -609,7 +737,10 @@ class Orchestrator:
                     idle.reset()
                     continue
 
-            # 7. Execute the one action.
+            # 7. Execute the one action. Any typed answer resolves an
+            # outstanding agent question.
+            if decision.action in (ActionType.send_line, ActionType.send_text) and mem.attention:
+                session.set_attention(agent_id, None)
             self._execute_decision(session, agent_id, decision)
             # Persist the executed action.
             arec = self._arec(session.session_id, agent_id)
@@ -627,10 +758,49 @@ class Orchestrator:
             idle.reset()
             time.sleep(settings.poll_interval_s)
 
+    def _record_cli_session_id(self, session: Session, agent_id: str, cli: str, cli_session_id: str) -> None:
+        session.set_devin_session_id(agent_id, cli_session_id)
+        session.emit(Event(
+            type="cli_session_captured", session_id=session.session_id, agent_id=agent_id,
+            data={"cli": cli, "session_id": cli_session_id},
+        ))
+
+    def _export_cli_trace(self, session: Session, agent_id: str) -> None:
+        """Copy a non-Devin CLI's own transcript next to the PTY recordings.
+
+        Devin writes its trace through --export at launch. Other CLIs keep
+        transcripts in their own stores, copied here in the background so an
+        HTTP stop request never waits on a subprocess.
+        """
+        mem = session.get_agent(agent_id)
+        if self.recorder is None or mem is None or not mem.devin_session_id or mem.command:
+            return
+        adapter = get_adapter(session.cli_for(agent_id))
+        if adapter.name == "devin" or not adapter.capabilities.trace_export:
+            return
+        sdir = self.recorder.session_dir(session.session_id)
+        if sdir is None:
+            return
+        dest = sdir / "traces" / agent_id / f"{max(mem.attempt_count, 1):04d}.{adapter.name}.json"
+        cli_session_id, cwd = mem.devin_session_id, mem.cwd
+
+        def _run() -> None:
+            try:
+                if adapter.export_trace(cli_session_id, cwd, dest):
+                    session.emit(Event(
+                        type="cli_trace_exported", session_id=session.session_id, agent_id=agent_id,
+                        data={"cli": adapter.name, "path": str(dest)},
+                    ))
+            except Exception:  # noqa: BLE001 - best-effort
+                log.exception("Trace export failed for %s", agent_id)
+
+        threading.Thread(target=_run, name=f"trace-{agent_id}", daemon=True).start()
+
     def _finalize_agent_summary(self, session: Session, agent_id: str, status: str) -> None:
         """Write the agent's summary.json with its final state + stats."""
         if self.recorder is None:
             return
+        self._export_cli_trace(session, agent_id)
         arec = self.recorder.get_agent(session.session_id, agent_id)
         if arec is None:
             return
@@ -644,6 +814,8 @@ class Orchestrator:
                 "role": mem.role,
                 "status": status,
                 "devin_session_id": mem.devin_session_id,
+                "cli": session.cli_for(agent_id),
+                "cli_session_id": mem.devin_session_id,
                 "started_at": mem.started_at,
                 "finished_at": mem.finished_at,
                 "summary": mem.summary,
@@ -675,7 +847,10 @@ class Orchestrator:
         # Don't re-process markers once the agent has reached a terminal state.
         if mem.status in (AgentStatus.done, AgentStatus.stopped, AgentStatus.error):
             return
-        recent = sess.recent_output(30)
+        # Plain streaming CLIs (Devin) leave markers in the raw scrollback;
+        # redraw-style TUIs (Claude Code, OpenCode, Codex) position text with
+        # cursor moves, so markers only exist on the rendered screen.
+        recent = sess.recent_output(30) + "\n" + sess.capture_visible_screen()
 
         # AGENT_DONE is valid only for the active work role and current stage.
         m = _DONE_RE.search(recent)
@@ -715,17 +890,28 @@ class Orchestrator:
                 self.recorder.close_agent(session.session_id, agent_id)
             return
 
-        # AGENT_QUESTION
+        # AGENT_QUESTION: report each distinct question once. It stays on a
+        # TUI's screen for many output chunks, and must not block the gate
+        # verdict checks below.
         m = _QUESTION_RE.search(recent)
+        run_key = self._run_key(session.session_id, agent_id)
         if m:
             question = m.group(1).strip()
-            session.emit(Event(
-                type="agent_question",
-                session_id=session.session_id,
-                agent_id=agent_id,
-                data={"question": question},
-            ))
-            return
+            if self._last_question.get(run_key) != question:
+                self._last_question[run_key] = question
+                session.set_attention(agent_id, question)
+                session.emit(Event(
+                    type="agent_question",
+                    session_id=session.session_id,
+                    agent_id=agent_id,
+                    data={"question": question},
+                ))
+                session.emit(Event(
+                    type="agent_attention",
+                    session_id=session.session_id,
+                    agent_id=agent_id,
+                    data={"question": question, "source": "agent"},
+                ))
 
         # Every gate verdict names the nearest preceding work stage.
         is_active_gate = get_role(mem.role).is_gate and session.current_stage() == mem.role
@@ -892,15 +1078,23 @@ class Orchestrator:
                 mem = session.get_agent(agent_id)
                 stage = mem.role if mem else "stage"
                 sess.send_line(
-                    f"Completion was not accepted. Verify all artifacts, then print "
-                    f"exactly AGENT_DONE {stage}."
+                    f"Completion was not accepted. Verify all artifacts, then print exactly "
+                    f"`AGENT_DONE {stage}` on its own line, without the backticks."
                 )
             return
         if decision.action == ActionType.terminate:
             self.stop_agent(session, agent_id)
             return
         if decision.action == ActionType.ask_human:
+            session.set_attention(agent_id, decision.reason)
             session.set_status(agent_id, AgentStatus.paused)
+            session.emit(Event(
+                type="agent_attention",
+                session_id=session.session_id,
+                agent_id=agent_id,
+                data={"question": decision.reason, "risk": decision.risk.value},
+            ))
+            # Legacy event name kept for existing consumers.
             session.emit(Event(
                 type="human_approval_needed",
                 session_id=session.session_id,
@@ -947,17 +1141,13 @@ class Orchestrator:
                         return
                     sess.send_line(
                         "Do not transfer directly. Finish the current gate and print exactly "
-                        f"APPROVE {reviewed_stage} or REJECT {reviewed_stage}: <actionable reasons>."
+                        f"`APPROVE {reviewed_stage}` or `REJECT {reviewed_stage}: <actionable reasons>` "
+                        "on its own line, without the backticks."
                     )
             return
         # Terminal keystroke actions.
         if sess and sess.is_alive():
-            screen = sess.capture_visible_screen()
-            menu_active = (
-                "Approve once" in screen
-                and "select" in screen
-                and "confirm" in screen
-            )
+            menu = get_adapter(session.cli_for(agent_id)).menu_state(sess.capture_visible_screen())
             confirms_menu = (
                 decision.action == ActionType.press_enter
                 or (
@@ -965,11 +1155,10 @@ class Orchestrator:
                     and (decision.key or "").lower() in {"1", "enter", "return"}
                 )
             )
-            approve_once_selected = re.search(
-                r"(?m)^\s*❭\s*1\s+Yes\s+\(Approve once\)", screen
-            ) is not None
-            if menu_active and confirms_menu:
-                if approve_once_selected:
+            if menu.active and confirms_menu:
+                # Only a highlighted one-time approval may be confirmed; never a
+                # "don't ask again"/"allow always" option.
+                if menu.approve_selected:
                     sess.send_enter()
                 return
             self._apply_action(sess, decision.action, decision.text, decision.key)

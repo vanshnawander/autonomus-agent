@@ -906,12 +906,12 @@ def test_fastapi_project_and_attempt_endpoints() -> None:
                 ],
             }).status_code == 400
             health = client.get("/health").json()
-            assert health["llm_model"] == "stealth/ox-alpha"
-            assert health["devin_model"] == "glm-5.2"
+            assert health["llm_model"] == "z-ai/glm-5.3-flash"
+            assert health["devin_model"] == "swe-2-high"
             assert health["llm_max_tokens"] is None
             print("  [ok] project log and numbered agent-session endpoints")
             print("  [ok] traversal and duplicate-agent requests rejected")
-            print("  [ok] health reports stealth/ox-alpha")
+            print("  [ok] health reports z-ai/glm-5.3-flash")
     finally:
         settings.log_dir = previous_log_dir
         settings.workspace_root = previous_workspace_root

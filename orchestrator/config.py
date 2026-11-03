@@ -33,6 +33,14 @@ def _env(key: str, default: str) -> str:
 
 @dataclass
 class Settings:
+    # --- Agent CLI ---
+    # Default CLI adapter for new agents: devin, opencode, codex, or claude-code
+    # (see orchestrator/agents/). Per-CLI overrides use DEVIN_ORCH_<CLI>_COMMAND,
+    # _MODEL and _EXTRA_ARGS, e.g. DEVIN_ORCH_CLAUDE_CODE_MODEL=opus.
+    default_agent_cli: str = field(
+        default_factory=lambda: _env("DEVIN_ORCH_AGENT_CLI", "devin")
+    )
+
     # --- PTY / terminal ---
     devin_command: str = field(
         default_factory=lambda: _env("DEVIN_ORCH_DEVIN_COMMAND", "devin")
@@ -46,7 +54,7 @@ class Settings:
     # Model used inside every spawned Devin role session. Devin accepts fuzzy
     # model names; this is passed as `--model <name>` at process startup.
     devin_model: str = field(
-        default_factory=lambda: _env("DEVIN_ORCH_DEVIN_MODEL", "glm-5.2")
+        default_factory=lambda: _env("DEVIN_ORCH_DEVIN_MODEL", "swe-2-high")
     )
     # If True, append `--export <dir>` so devin writes a full conversation
     # transcript per agent into log_dir/<session>/traces/.
@@ -95,7 +103,7 @@ class Settings:
         )
     )
     llm_model: str = field(
-        default_factory=lambda: _env("DEVIN_ORCH_LLM_MODEL", "stealth/ox-alpha")
+        default_factory=lambda: _env("DEVIN_ORCH_LLM_MODEL", "z-ai/glm-5.3-flash")
     )
     llm_temperature: float = field(
         default_factory=lambda: float(_env("DEVIN_ORCH_LLM_TEMP", "0.2"))

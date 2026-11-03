@@ -14,11 +14,13 @@ Endpoints:
   GET    /sessions/{sid}/approvals                  pending approvals
   POST   /sessions/{sid}/approvals/{apid}           resolve an approval
   GET    /sessions/{sid}/events                     SSE stream of events
+  GET    /agent-clis                                available CLI agent adapters
 """
 from __future__ import annotations
 
 import asyncio
 import hashlib
+import importlib.util
 import json
 import logging
 import os
@@ -32,6 +34,7 @@ from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
+from .agents import get_adapter, list_adapters
 from .config import settings
 from .control_loop import Orchestrator
 from .pty_manager import PTYManager
@@ -42,7 +45,6 @@ from .roles import get_role
 from .safety import SafetyGate
 from .schemas import (
     AgentStateResponse,
-    AgentStatus,
     ApprovalRequest,
     CreateSessionRequest,
     Event,
@@ -81,7 +83,7 @@ def build_app() -> FastAPI:
         yield
         orch.shutdown()
 
-    app = FastAPI(title="Devin CLI Orchestrator", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(title="CLI Agent Research Orchestrator", version="0.2.0", lifespan=lifespan)
 
     # Serve the React dashboard build (dashboard/dist). In development, run
     # `npm run dev` inside dashboard/ and open the Vite dev server instead.
@@ -135,6 +137,11 @@ def build_app() -> FastAPI:
         recent = psess.recent_output(20) if psess else ""
         pending = safety.pending_for_agent(sid, aid)
         alive = bool(psess and psess.is_alive())
+        cli = s.cli_for(aid)
+        try:
+            default_model = get_adapter(cli).default_model()
+        except KeyError:
+            default_model = None
         return AgentStateResponse(
             agent_id=aid,
             role=mem.role,
@@ -143,9 +150,14 @@ def build_app() -> FastAPI:
             recent_output=recent,
             last_decision=mem.last_decision,
             devin_session_id=mem.devin_session_id,
+            cli_session_id=mem.devin_session_id,
+            agent_cli=cli,
+            attention=mem.attention,
+            attempt_count=mem.attempt_count,
+            retry_count=mem.retry_count,
             pending_approval=pending.question if pending else None,
             kind=mem.kind,
-            model=mem.model or settings.devin_model,
+            model=mem.model or default_model,
             started_at=mem.started_at,
             finished_at=mem.finished_at,
             alive=alive,
@@ -164,7 +176,37 @@ def build_app() -> FastAPI:
             active_agent=s.active_agent, active_agents=_active_agents(s),
             done=s.done, approval_mode=s.approval_mode, workspace=s.workspace,
             pipeline=s.pipeline, stage_index=s.stage_index,
+            agent_cli=s.agent_cli, current_stage=s.current_stage(),
+            controller_error=getattr(orch.controller, "last_error", None),
         )
+
+    def _live_status(s) -> tuple[str, bool]:
+        """Return (status, needs_attention) for a live session."""
+        needs = bool(safety.pending(session_id=s.session_id)) or any(
+            mem.attention for mem in s.agents.values()
+        )
+        if needs:
+            return "needs_attention", True
+        if _active_agents(s):
+            return "running", False
+        if s.done:
+            return "done", False
+        if any(mem.status.value == "error" for mem in s.agents.values()):
+            return "error", False
+        return "stopped", False
+
+    def _validate_cli(name: Optional[str]) -> str:
+        try:
+            adapter = get_adapter(name)
+        except KeyError as exc:
+            raise HTTPException(status_code=400, detail=str(exc.args[0]))
+        if not adapter.is_installed():
+            raise HTTPException(
+                status_code=400,
+                detail=(f"{adapter.display_name} is not installed or not on PATH (command "
+                        f"{adapter.command()!r}). Install it or set {adapter.env_prefix}_COMMAND."),
+            )
+        return adapter.name
 
     def _prepare_workspace(req: CreateSessionRequest) -> tuple[Path, Path, str]:
         root = settings.workspace_root.resolve()
@@ -191,6 +233,15 @@ def build_app() -> FastAPI:
             pending.replace(brief_path)
         digest = hashlib.sha256(brief.encode("utf-8")).hexdigest()
         return workspace, brief_path, digest
+
+    def _validate_cli_name(name: Optional[str]) -> Optional[str]:
+        """Validate a CLI name without requiring it on PATH (custom commands)."""
+        if name is None:
+            return None
+        try:
+            return get_adapter(name).name
+        except KeyError as exc:
+            raise HTTPException(status_code=400, detail=str(exc.args[0]))
 
     def _latest_trace_session_id(sid: str, aid: str) -> Optional[str]:
         sdir = recorder.session_dir(sid)
@@ -223,6 +274,19 @@ def build_app() -> FastAPI:
                 raise HTTPException(status_code=400, detail=str(exc))
         if req.approval_mode.value == "autonomous" and (not settings.llm_api_key or settings.llm_api_key == "missing"):
             raise HTTPException(status_code=400, detail="autonomous mode requires DEVIN_ORCH_LLM_API_KEY or OPENROUTER_API_KEY")
+        # Fail before anything is written if a CLI an agent will launch is unknown
+        # or missing; previously this surfaced as a 500 after the session existed.
+        session_cli = _validate_cli_name(req.agent_cli) or get_adapter(None).name
+        agent_clis: dict[str, Optional[str]] = {}
+        for spec in req.agents:
+            if spec.command:
+                agent_clis[spec.agent_id] = _validate_cli_name(spec.agent_cli)
+            elif spec.agent_cli:
+                agent_clis[spec.agent_id] = _validate_cli(spec.agent_cli)
+            else:
+                agent_clis[spec.agent_id] = None
+        if any(not spec.command and not spec.agent_cli for spec in req.agents):
+            _validate_cli(session_cli)
         workspace, brief_path, brief_sha256 = _prepare_workspace(req)
         root = settings.workspace_root.resolve()
         for spec in req.agents:
@@ -242,8 +306,12 @@ def build_app() -> FastAPI:
                 req.session_id,
                 req.goal,
                 req.constraints,
-                [(a.agent_id, a.role, a.command, a.cwd, a.extra_prompt) for a in req.agents],
+                [
+                    (a.agent_id, a.role, a.command, a.cwd, a.extra_prompt, agent_clis[a.agent_id], a.model)
+                    for a in req.agents
+                ],
                 approval_mode=req.approval_mode,
+                agent_cli=session_cli,
                 workspace=str(workspace),
                 project_brief_path=str(brief_path),
                 project_brief_sha256=brief_sha256,
@@ -267,10 +335,18 @@ def build_app() -> FastAPI:
                     detail=f"first pipeline stage {first_stage!r} has no matching agent",
                 )
             spec = next(a for a in req.agents if a.agent_id == first_agent)
-            orch.start_agent(
-                sess, first_agent,
-                resume_session_id=spec.resume_session_id,
-            )
+            try:
+                orch.start_agent(
+                    sess, first_agent,
+                    resume_session_id=spec.resume_session_id,
+                )
+            except Exception as exc:  # noqa: BLE001 - report launch failures to the caller
+                log.exception("First agent of %s failed to start", sess.session_id)
+                sessions.remove(sess.session_id)
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"session recorded but {first_agent} failed to start: {exc}",
+                )
         return _session_response(sess)
 
     @app.get("/sessions")
@@ -330,6 +406,13 @@ def build_app() -> FastAPI:
                                     continue
                     except OSError:
                         pass
+            runtime = manifest.get("agents_runtime", {}) or {}
+            recorded_done = bool(manifest.get("done", False))
+            recorded_error = any(
+                isinstance(state, dict) and state.get("status") == "error" for state in runtime.values()
+            )
+            pipeline = list(manifest.get("pipeline", []))
+            stage_index = int(manifest.get("stage_index", 0))
             out[sid] = SessionSummary(
                 session_id=sid,
                 goal=str(manifest.get("goal", "") or ""),
@@ -343,13 +426,17 @@ def build_app() -> FastAPI:
                 last_event_at=last_event_at,
                 approval_mode=manifest.get("approval_mode", "manual"),
                 workspace=manifest.get("workspace"),
-                pipeline=list(manifest.get("pipeline", [])),
-                stage_index=int(manifest.get("stage_index", 0)),
+                pipeline=pipeline,
+                stage_index=stage_index,
+                agent_cli=str(manifest.get("agent_cli") or "devin"),
+                current_stage=pipeline[stage_index] if 0 <= stage_index < len(pipeline) else None,
+                status="done" if recorded_done else ("error" if recorded_error else "stopped"),
             )
         # Live sessions override / supplement.
         for sid, s in sessions.all().items():
             live_roles = [m.role for m in s.agents.values()]
             existing = out.get(sid)
+            status, needs_attention = _live_status(s)
             live_summary = SessionSummary(
                 session_id=sid,
                 goal=s.goal,
@@ -365,6 +452,10 @@ def build_app() -> FastAPI:
                 workspace=s.workspace,
                 pipeline=s.pipeline,
                 stage_index=s.stage_index,
+                agent_cli=s.agent_cli,
+                current_stage=s.current_stage(),
+                needs_attention=needs_attention,
+                status=status,
             )
             out[sid] = live_summary
         # Newest first by last_event_at (fallback created_at, then name).
@@ -382,7 +473,11 @@ def build_app() -> FastAPI:
     def delete_session(sid: str) -> dict:
         s = _session_or_404(sid)
         for aid in list(s.agents):
-            orch.stop_agent(s, aid)
+            psess = pty_manager.get(aid, sid)
+            if psess is not None and psess.is_alive():
+                orch.stop_agent(s, aid)
+        for item in safety.pending(session_id=sid):
+            safety.resolve(item.id, False, session_id=sid)
         sessions.remove(sid)
         return {"deleted": sid}
 
@@ -404,14 +499,25 @@ def build_app() -> FastAPI:
         if running is not None and running.is_alive():
             raise HTTPException(status_code=409, detail=f"agent {target} is already running")
         mem = s.get_agent(target)
-        resume_id = (mem.devin_session_id if mem else None) or _latest_trace_session_id(sid, target)
+        try:
+            adapter = get_adapter(s.cli_for(target))
+        except KeyError as exc:
+            raise HTTPException(status_code=409, detail=str(exc.args[0]))
+        resume_id = None
+        if adapter.capabilities.resume:
+            resume_id = mem.devin_session_id if mem else None
+            if not resume_id and adapter.name == "devin":
+                resume_id = _latest_trace_session_id(sid, target)
         if resume_id and mem:
             s.set_devin_session_id(target, resume_id)
         if not resume_id and not fresh_if_missing:
             raise HTTPException(
                 status_code=409,
-                detail="no validated Devin history ID; retry with fresh_if_missing=true to restart the stage",
+                detail=(f"no validated {adapter.display_name} session id to resume; retry with "
+                        "fresh_if_missing=true to restart the stage"),
             )
+        if not mem or not mem.command:
+            _validate_cli(adapter.name)
         orch.start_agent(
             s, target, resume_session_id=resume_id,
             extra_prompt=(
@@ -429,6 +535,7 @@ def build_app() -> FastAPI:
             get_role(req.role)
         except KeyError as exc:
             raise HTTPException(status_code=400, detail=str(exc))
+        cli = _validate_cli(req.agent_cli or s.agent_cli)
         cwd = req.cwd or s.workspace
         if cwd:
             candidate = Path(cwd).resolve()
@@ -442,7 +549,7 @@ def build_app() -> FastAPI:
         try:
             orch.launch_auxiliary_agent(
                 s, req.agent_id, req.role, req.prompt, cwd=cwd,
-                model=req.model, resume_session_id=req.resume_session_id,
+                model=req.model, resume_session_id=req.resume_session_id, cli=cli,
             )
         except RuntimeError as exc:
             raise HTTPException(status_code=409, detail=str(exc))
@@ -483,12 +590,20 @@ def build_app() -> FastAPI:
     @app.post("/sessions/{sid}/feedback")
     def send_feedback(sid: str, req: FeedbackRequest) -> dict:
         s = _session_or_404(sid)
-        target = req.target_agent or s.active_agent
+        active = _active_agents(s)
+        target = req.target_agent or (active[0] if len(active) == 1 else None)
+        if req.target_agent is None and len(active) > 1:
+            raise HTTPException(status_code=409, detail="Multiple tasks are active; select the feedback target")
+        if target is None and not s.done:
+            target = s.active_agent
         if target is None:
             raise HTTPException(status_code=400, detail="no target_agent and no active agent")
         if target not in s.agents:
             raise HTTPException(status_code=404, detail=f"agent {target} not in session")
-        orch.inject_feedback(s, target, req.message, req.mode)
+        try:
+            orch.inject_feedback(s, target, req.message, req.mode)
+        except RuntimeError as exc:
+            raise HTTPException(status_code=409, detail=str(exc))
         return {"target_agent": target, "mode": req.mode.value}
 
     # ------------------------------------------------------------------ manual input
@@ -565,6 +680,7 @@ def build_app() -> FastAPI:
 
         async def gen():
             cursor = last_event_id
+            last_heartbeat = 0.0
             while True:
                 events = s.recent_events(2000)
                 events = _events_after_cursor(events, cursor)
@@ -572,6 +688,11 @@ def build_app() -> FastAPI:
                     payload = json.dumps(ev.model_dump(), default=str)
                     yield f"id: {ev.event_id}\ndata: {payload}\n\n"
                     cursor = ev.event_id
+                # Comment heartbeats keep idle streams alive through proxies.
+                now = time.time()
+                if now - last_heartbeat >= 10:
+                    yield f": heartbeat {now}\n\n"
+                    last_heartbeat = now
                 await asyncio.sleep(0.5)
 
         return StreamingResponse(gen(), media_type="text/event-stream",
@@ -759,7 +880,6 @@ def build_app() -> FastAPI:
     def preflight() -> dict:
         checks = {
             "controller": {"ok": bool(settings.llm_api_key and settings.llm_api_key != "missing"), "detail": settings.llm_model},
-            "devin": {"ok": shutil.which(settings.devin_command) is not None, "detail": settings.devin_command},
             "python": {"ok": Path(settings.python_executable).is_file(), "detail": settings.python_executable},
             "conda": {"ok": settings.conda_env == "research-agents", "detail": settings.conda_env or "not detected"},
             "workspace": {"ok": settings.workspace_root.is_dir() and os.access(settings.workspace_root, os.W_OK), "detail": str(settings.workspace_root)},
@@ -776,22 +896,41 @@ def build_app() -> FastAPI:
         try:
             inventory = redacted_inventory(settings.server_inventory_file)
             password_auth = any(server["auth"] == "password" for server in inventory)
-            inventory_ok = not password_auth or shutil.which("sshpass") is not None
+            inventory_ok = not password_auth or shutil.which("sshpass") is not None or importlib.util.find_spec("pexpect") is not None
             inventory_detail = f"{len(inventory)} server(s), secret-safe broker ready"
             if password_auth and not inventory_ok:
-                inventory_detail += "; sshpass is missing"
+                inventory_detail += "; sshpass and pexpect are missing"
         except (ValueError, OSError) as exc:
             inventory_ok = not settings.server_inventory_file.exists()
             inventory_detail = "optional; not configured" if inventory_ok else str(exc)
         checks["server_inventory"] = {"ok": inventory_ok, "detail": inventory_detail}
-        required = ("controller", "devin", "python", "conda", "workspace", "trace_export", "searxng", "server_inventory")
+        default_cli = get_adapter(None).name
+        for adapter in list_adapters():
+            installed = adapter.is_installed()
+            marker = " (default)" if adapter.name == default_cli else ""
+            checks[f"cli:{adapter.name}"] = {
+                "ok": installed,
+                "detail": (f"{adapter.command()}{marker}" if installed
+                           else f"{adapter.command()} not found on PATH{marker}"),
+            }
+        # Only the default CLI is required; others are optional plugins.
+        required = (
+            "controller", f"cli:{default_cli}", "python", "conda", "workspace", "trace_export",
+            "searxng", "server_inventory",
+        )
         return {"ready": all(checks[name]["ok"] for name in required), "checks": checks}
+
+    @app.get("/agent-clis")
+    def agent_clis() -> dict:
+        return {"default": get_adapter(None).name, "clis": [adapter.info() for adapter in list_adapters()]}
 
 
     @app.get("/health")
     def health() -> dict:
         return {
-            "status": "ok",
+            "status": "degraded" if getattr(orch.controller, "last_error", None) else "ok",
+            "controller_error": getattr(orch.controller, "last_error", None),
+            "controller_consecutive_errors": getattr(orch.controller, "consecutive_errors", 0),
             "devin_command": settings.devin_command,
             "devin_model": settings.devin_model,
             "llm_model": settings.llm_model,
@@ -805,6 +944,8 @@ def build_app() -> FastAPI:
             "server_inventory_configured": settings.server_inventory_file.is_file(),
             "server_inventory_file": str(settings.server_inventory_file),
             "trace_export": settings.devin_export_traces,
+            "default_agent_cli": get_adapter(None).name,
+            "agent_clis": {adapter.name: adapter.is_installed() for adapter in list_adapters()},
             "sessions": len(sessions.all()),
         }
 

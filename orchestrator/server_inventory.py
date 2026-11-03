@@ -213,23 +213,45 @@ def run_remote(path: Path, server_name: str, command: list[str]) -> int:
         "BatchMode=yes" if server.identity_file else "BatchMode=no",
         "-o", "StrictHostKeyChecking=yes", "-o", "ConnectTimeout=15",
     ]
+    # GNU timeout runs on the server, so an SSH disconnect cannot remove the
+    # runtime deadline. It also signals the command process group.
+    timeout_seconds = server.max_runtime_minutes * 60
+    remote_script = (
+        f"cd {shlex.quote(server.workdir)} && exec timeout --signal=TERM "
+        f"--kill-after=10s {timeout_seconds}s {remote}"
+    )
     pass_read: int | None = None
     pass_write: int | None = None
     if server.identity_file:
         ssh += ["-i", server.identity_file]
     elif server.password is not None:
         sshpass = shutil.which("sshpass")
-        if not sshpass:
-            raise RuntimeError("password authentication requires sshpass; prefer an SSH key")
-        pass_read, pass_write = os.pipe()
-        ssh = [sshpass, "-d", str(pass_read), *ssh]
-    # GNU timeout runs on the server, so an SSH disconnect cannot remove the
-    # runtime deadline. It also signals the command's process group.
-    timeout_seconds = server.max_runtime_minutes * 60
-    remote_script = (
-        f"cd {shlex.quote(server.workdir)} && exec timeout --signal=TERM "
-        f"--kill-after=10s {timeout_seconds}s {remote}"
-    )
+        if sshpass:
+            pass_read, pass_write = os.pipe()
+            ssh = [sshpass, "-d", str(pass_read), *ssh]
+        else:
+            # pexpect fallback keeps the password out of argv, environment, and logs.
+            # The secret is sent only after OpenSSH emits its password prompt.
+            try:
+                import pexpect  # type: ignore
+            except ImportError as exc:
+                raise RuntimeError(
+                    "password authentication requires sshpass or pexpect; prefer an SSH key"
+                ) from exc
+            full_ssh = [*ssh, f"{server.user}@{server.host}", remote_script]
+            child = pexpect.spawn(full_ssh[0], full_ssh[1:], encoding="utf-8", timeout=30)
+            child.logfile_read = sys.stdout
+            try:
+                match = child.expect([r"(?i)password:\s*$", pexpect.EOF, pexpect.TIMEOUT])
+                if match != 0:
+                    raise RuntimeError("SSH ended before requesting a password")
+                child.sendline(server.password or "")
+                child.expect(pexpect.EOF, timeout=server.max_runtime_minutes * 60 + 45)
+                child.close()
+                return int(child.exitstatus if child.exitstatus is not None else 1)
+            finally:
+                if child.isalive():
+                    child.close(force=True)
     ssh += [f"{server.user}@{server.host}", remote_script]
     timeout_seconds = server.max_runtime_minutes * 60
     proc: subprocess.Popen[bytes] | None = None

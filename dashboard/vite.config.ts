@@ -20,6 +20,8 @@ export default defineConfig({
       '/logs': 'http://127.0.0.1:8765',
       '/health': 'http://127.0.0.1:8765',
       '/events': 'http://127.0.0.1:8765',
+      '/preflight': 'http://127.0.0.1:8765',
+      '/agent-clis': 'http://127.0.0.1:8765',
     },
   },
   build: {

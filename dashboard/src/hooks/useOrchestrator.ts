@@ -1,6 +1,13 @@
-import { useEffect, useRef, useState } from "react";
-import { apiClient, openEventStream, openGlobalEventStream, openLiveTerminal } from "@/lib/api";
-import type { ApprovalItem, Event, HealthResponse, SessionResponse, SessionSummary } from "@/lib/types";
+import { useCallback, useEffect, useState } from "react";
+import { apiClient, errorMessage, isNotFound, openEventStream, openLiveTerminal } from "@/lib/api";
+import type {
+  AgentStateResponse,
+  ApprovalItem,
+  Event,
+  HealthResponse,
+  SessionResponse,
+  SessionSummary,
+} from "@/lib/types";
 
 /** Polls /health on an interval. */
 export function useHealth(intervalMs = 5000) {
@@ -27,33 +34,6 @@ export function useHealth(intervalMs = 5000) {
     };
   }, [intervalMs]);
   return { health, online };
-}
-
-/** Polls the session list on an interval. */
-export function useSessionList(intervalMs = 5000) {
-  const [sessions, setSessions] = useState<SessionResponse[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  useEffect(() => {
-    let alive = true;
-    const tick = async () => {
-      try {
-        const list = await apiClient.listSessions();
-        if (alive) {
-          setSessions(list);
-          setError(null);
-        }
-      } catch (e) {
-        if (alive) setError((e as Error).message);
-      }
-    };
-    tick();
-    const id = setInterval(tick, intervalMs);
-    return () => {
-      alive = false;
-      clearInterval(id);
-    };
-  }, [intervalMs]);
-  return { sessions, error };
 }
 
 /** Polls the unified (live + recorded) session list for the sidebar. */
@@ -133,11 +113,9 @@ export function usePendingApprovals(sessions: SessionSummary[], intervalMs = 250
 export function useSession(sid: string | null, intervalMs = 2500) {
   const [session, setSession] = useState<SessionResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [nonce, setNonce] = useState(0);
   useEffect(() => {
-    if (!sid) {
-      setSession(null);
-      return;
-    }
+    if (!sid) return;
     let alive = true;
     const tick = async () => {
       try {
@@ -147,19 +125,22 @@ export function useSession(sid: string | null, intervalMs = 2500) {
           setError(null);
         }
       } catch (e) {
-        const msg = (e as Error).message;
-        if (msg.startsWith("404")) {
+        if (isNotFound(e)) {
           // Fall back to recorded session manifest.
           try {
             const rec = await apiClient.getRecordedSession(sid);
             const manifest = rec.manifest as {
               goal?: string;
-              agents?: Record<string, { role?: string }>;
+              agents?: Record<string, { role?: string; agent_cli?: string; model?: string }>;
               done?: boolean;
+              pipeline?: string[];
+              stage_index?: number;
+              approval_mode?: "manual" | "autonomous";
+              workspace?: string;
+              agent_cli?: string;
             };
-            const agents: Record<string, import("@/lib/types").AgentStateResponse> = {};
-            const ma = manifest.agents ?? {};
-            for (const [aid, info] of Object.entries(ma)) {
+            const agents: Record<string, AgentStateResponse> = {};
+            for (const [aid, info] of Object.entries(manifest.agents ?? {})) {
               agents[aid] = {
                 agent_id: aid,
                 role: info?.role ?? "unknown",
@@ -169,6 +150,9 @@ export function useSession(sid: string | null, intervalMs = 2500) {
                 last_decision: null,
                 devin_session_id: null,
                 pending_approval: null,
+                agent_cli: info?.agent_cli ?? manifest.agent_cli ?? null,
+                model: info?.model ?? null,
+                alive: false,
               };
             }
             if (alive) {
@@ -179,6 +163,11 @@ export function useSession(sid: string | null, intervalMs = 2500) {
                 active_agent: null,
                 done: !!manifest.done,
                 live: false,
+                pipeline: manifest.pipeline,
+                stage_index: manifest.stage_index,
+                approval_mode: manifest.approval_mode,
+                workspace: manifest.workspace,
+                agent_cli: manifest.agent_cli ?? null,
               });
               setError(null);
             }
@@ -187,7 +176,7 @@ export function useSession(sid: string | null, intervalMs = 2500) {
             /* fall through to set error */
           }
         }
-        if (alive) setError(msg);
+        if (alive) setError(errorMessage(e));
       }
     };
     tick();
@@ -196,94 +185,96 @@ export function useSession(sid: string | null, intervalMs = 2500) {
       alive = false;
       clearInterval(id);
     };
-  }, [sid, intervalMs]);
-  return { session, error };
+  }, [sid, intervalMs, nonce]);
+  const refresh = useCallback(() => setNonce((n) => n + 1), []);
+  return { session: session?.session_id === sid ? session : null, error, refresh };
+}
+
+const MAX_EVENTS = 600;
+const MAX_TERMINAL_EVENTS = 150;
+
+/** Keeps the newest events, dropping noisy terminal_output first so the
+ * meaningful lifecycle events survive long runs. */
+function trimEvents(events: Event[]): Event[] {
+  if (events.length <= MAX_EVENTS) return events;
+  let terminal = events.reduce((n, e) => n + (e.type === "terminal_output" ? 1 : 0), 0);
+  let excess = events.length - MAX_EVENTS;
+  const out: Event[] = [];
+  for (const e of events) {
+    if (excess > 0 && e.type === "terminal_output" && terminal > MAX_TERMINAL_EVENTS) {
+      terminal -= 1;
+      excess -= 1;
+      continue;
+    }
+    out.push(e);
+  }
+  return out.length > MAX_EVENTS ? out.slice(-MAX_EVENTS) : out;
 }
 
 /** Subscribes to the session SSE event stream; returns the accumulated events. */
 export function useSessionEvents(sid: string | null) {
-  const [events, setEvents] = useState<Event[]>([]);
+  // Events are stored with the sid they belong to so switching sessions never
+  // shows the previous session's events (no reset needed inside the effect).
+  const [state, setState] = useState<{ sid: string | null; events: Event[] }>({ sid: null, events: [] });
   const [connection, setConnection] = useState<"connecting" | "connected" | "retrying">("connecting");
-  const seen = useRef(new Set<string>());
   useEffect(() => {
     if (!sid) return;
-    setEvents([]);
-    seen.current.clear();
+    const seen = new Set<string>();
+    let buffer: Event[] = [];
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    // Batch bursts (the server replays history on connect) into one render.
+    const flush = () => {
+      timer = null;
+      const batch = buffer;
+      buffer = [];
+      setState((prev) => ({
+        sid,
+        events: trimEvents(prev.sid === sid ? [...prev.events, ...batch] : batch),
+      }));
+    };
     const close = openEventStream(sid, (e) => {
-      if (e.event_id && seen.current.has(e.event_id)) return;
+      if (e.event_id && seen.has(e.event_id)) return;
       if (e.event_id) {
-        seen.current.add(e.event_id);
-        if (seen.current.size > 1000) seen.current.delete(seen.current.values().next().value!);
+        seen.add(e.event_id);
+        if (seen.size > 4000) seen.delete(seen.values().next().value!);
       }
-      setEvents((prev) => {
-        const next = [...prev, e];
-        return next.length > 300 ? next.slice(-300) : next;
-      });
+      buffer.push(e);
+      if (!timer) timer = setTimeout(flush, 150);
     }, setConnection);
-    return close;
-  }, [sid]);
-  return { events, connection };
-}
-
-/** Subscribes to the global SSE stream (all sessions + heartbeats). */
-export function useGlobalEvents() {
-  const [events, setEvents] = useState<Event[]>([]);
-  useEffect(() => {
-    const close = openGlobalEventStream((e) => {
-      setEvents((prev) => {
-        if (e.type === "heartbeat") {
-          // Keep only the latest heartbeat.
-          const without = prev.filter((p) => p.type !== "heartbeat");
-          const next = [...without, e];
-          return next.length > 400 ? next.slice(-400) : next;
-        }
-        const next = [...prev, e];
-        return next.length > 400 ? next.slice(-400) : next;
-      });
-    });
-    return close;
-  }, []);
-  return events;
-}
-
-/** Subscribes to one agent's live PTY output stream; returns the buffered text. */
-export function useLiveTerminal(sid: string | null, aid: string | null, active: boolean) {
-  const [buffer, setBuffer] = useState("");
-  const closeRef = useRef<(() => void) | null>(null);
-  const revisionRef = useRef(-1);
-  useEffect(() => {
-    closeRef.current?.();
-    closeRef.current = null;
-    if (!sid || !aid || !active) {
-      return;
-    }
-    revisionRef.current = -1;
-    setBuffer("");
-    const close = openLiveTerminal(
-      sid,
-      aid,
-      (data, mode, revision) => {
-        if (
-          revision !== undefined &&
-          mode === "replace" &&
-          revision <= revisionRef.current
-        ) {
-          return;
-        }
-        if (revision !== undefined) revisionRef.current = revision;
-        setBuffer((prev) => {
-          const next = mode === "replace" ? data : prev + data;
-          return next.length > 16000 ? next.slice(-16000) : next;
-        });
-      },
-      () => closeRef.current?.(),
-    );
-    closeRef.current = close;
     return () => {
+      if (timer) clearTimeout(timer);
       close();
     };
+  }, [sid]);
+  return { events: state.sid === sid ? state.events : [], connection };
+}
+
+/** Subscribes to one agent's live terminal screen; returns the latest text. */
+export function useLiveTerminal(sid: string | null, aid: string | null, active: boolean) {
+  const key = sid && aid ? `${sid}/${aid}` : null;
+  const [state, setState] = useState<{ key: string | null; text: string }>({ key: null, text: "" });
+  useEffect(() => {
+    if (!sid || !aid || !active) return;
+    const streamKey = `${sid}/${aid}`;
+    let revision = -1;
+    let close: (() => void) | null = null;
+    close = openLiveTerminal(
+      sid,
+      aid,
+      (data, mode, rev) => {
+        if (rev !== undefined && mode === "replace" && rev <= revision) return;
+        if (rev !== undefined) revision = rev;
+        setState((prev) => {
+          const base = prev.key === streamKey && mode === "append" ? prev.text : "";
+          const next = base + data;
+          return { key: streamKey, text: next.length > 16000 ? next.slice(-16000) : next };
+        });
+      },
+      () => close?.(),
+    );
+    return () => close?.();
   }, [sid, aid, active]);
-  return buffer;
+  return state.key === key ? state.text : "";
 }
 
 /** Generic async fetch hook with refresh. */
@@ -307,7 +298,7 @@ function useAsync<T>(
           setError(null);
         }
       } catch (e) {
-        if (alive) setError((e as Error).message);
+        if (alive) setError(errorMessage(e));
       } finally {
         if (alive) setLoading(false);
       }
@@ -377,17 +368,39 @@ export function useRecordedSession(sid: string) {
   return useAsync(() => apiClient.getRecordedSession(sid), [sid], 10000);
 }
 
-/** Loads recorded events from /logs/{sid}/events (one-shot, with refresh). */
+/** Loads recorded events from /logs/{sid}/events (polled). */
 export function useRecordedEvents(sid: string | null, tail = 200) {
   return useAsync(
-    async () => {
-      if (!sid) return [];
-      const q = new URLSearchParams({ tail: String(tail) });
-      const res = await fetch(`/logs/${encodeURIComponent(sid)}/events?${q}`);
-      if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
-      return (await res.json()) as Event[];
-    },
+    async () => (sid ? apiClient.recordedEvents(sid, tail) : []),
     [sid, tail],
     10000,
+  );
+}
+
+export function useHandoffs(sid: string) {
+  return useAsync(() => apiClient.listHandoffs(sid), [sid], 5000);
+}
+
+export function useApprovals(sid: string) {
+  return useAsync(() => apiClient.listApprovals(sid), [sid], 2500);
+}
+
+export function usePreflight() {
+  return useAsync(() => apiClient.preflight(), [], 30000);
+}
+
+/** Installed agent CLIs. `data` is null on servers without /agent-clis. */
+export function useAgentClis() {
+  return useAsync(
+    async () => {
+      try {
+        return await apiClient.agentClis();
+      } catch (e) {
+        if (isNotFound(e)) return null;
+        throw e;
+      }
+    },
+    [],
+    30000,
   );
 }
